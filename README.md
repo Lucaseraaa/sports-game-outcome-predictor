@@ -8,3 +8,5 @@ Devono essere utilizzate 3 tipologie di branch per la gestione del progetto:
 - feature
 
 Il branch main viene utilizzato solamente per il deploy dell'applicazione, il developing per la versione di stagine e feature per aggiungere, modificare ed eliminare codice. 
+
+Proviamo a collaborare
