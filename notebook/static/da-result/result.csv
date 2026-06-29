@@ -1,4 +1,4 @@
-Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR,Season,Home_WinStreak,Away_WinStreak,Z_Home_Goals_Season,Z_Home_Wins_Season,Z_Away_Goals_Season,Z_Away_Wins_Season,GoalOnShotRatioHome,GoalOnShotRatioAway,HomeAdvantage,Home_Elo,Away_Elo,PointToMatchRatioHome,PointToMatchRatioAway
+Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR,Season,Home_WinStreak,Away_WinStreak,Z_Home_Goals_Season,Z_Home_Wins_Season,Z_Away_Goals_Season,Z_Away_Wins_Season,GoalOnShotRatioHome,GoalOnShotRatioAway,HomeAdvantage,HomeElo,AwayElo,PointToMatchRatioHome,PointToMatchRatioAway
 2015-08-22,Lazio,Bologna,2,1,H,2015-2016,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1500.0,1500.0,0.0,0.0
 2015-08-22,Verona,Roma,1,1,D,2015-2016,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1500.0,1500.0,0.0,0.0
 2015-08-23,Sassuolo,Napoli,2,1,H,2015-2016,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1500.0,1500.0,0.0,0.0
