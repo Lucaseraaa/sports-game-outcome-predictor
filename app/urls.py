@@ -13,4 +13,4 @@ def import_views(app: Flask) -> None:
     login_view = LoginView.as_view('user_api')
 
     # Gestione di tutte le routes
-    app.add_url_rule('/login/', view_func=login_view, methods=['GET', ])
+    app.add_url_rule('/login/', view_func=login_view, methods=['GET', 'POST'])
