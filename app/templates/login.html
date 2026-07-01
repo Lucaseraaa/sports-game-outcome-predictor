@@ -28,6 +28,15 @@
         .btn-custom:hover {
             background-color: #1e3c72;
         }
+
+        .register-size {
+            font-size: 14px;
+        }
+
+        .register-size > a{
+            text-decoration: none;
+        }
+
     </style>
 </head>
 
@@ -64,11 +73,17 @@
                 <label class="form-label">Password</label>
                 <input type="password" name="password" class="form-control" placeholder="Inserisci password" required>
             </div>
+            
+            <p class="text-left register-size">
+                Non hai un account? <a href="/register">Registrati</a>
+            </p>
 
             <button type="submit" class="btn btn-custom w-100 text-white">
                 Accedi
             </button>
         </form>
+
+        
 
     </div>
 </div>

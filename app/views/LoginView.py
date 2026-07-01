@@ -1,5 +1,5 @@
 from flask.views import MethodView
-from flask import render_template, request
+from flask import render_template, request, session
 
 class LoginView(MethodView):
 
@@ -20,5 +20,9 @@ class LoginView(MethodView):
         username, password = form.get("username"), form.get("password")
 
         # TODO: verifica username e password nel db
+
+        # Inserisco l'utente nella session
+        #
+        #  session["user"] = username
 
         return render_template("login.html")
