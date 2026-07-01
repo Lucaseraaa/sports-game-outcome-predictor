@@ -3,10 +3,6 @@ from app.urls import import_views
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    return "Ciao, Flask!"
-
 def main():
     """
     Funzione main: permette di avviare Flask
