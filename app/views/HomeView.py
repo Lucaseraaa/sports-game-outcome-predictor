@@ -10,6 +10,6 @@ class HomeView(MethodView):
         """
 
         s = SoccerDataApi()
-        
+        s.get_matches()
 
         return render_template("home.html")
