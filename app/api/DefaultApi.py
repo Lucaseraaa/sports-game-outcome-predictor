@@ -14,15 +14,8 @@ class DefaultApi:
         self.__body = body
 
     def get(self, params: dict) -> dict:
-
-        try:
-            
-            r = requests.get(self.__uri, headers=self.__headers, params=params)
-
-        except Exception as e:
-
-            print(f"Errore nella richiesta: {e}")
-            raise e
+        
+        r = requests.get(self.__uri, headers=self.__headers, params=params)    
 
         if not r.ok:
             raise Exception(f"Messaggio ricevuto con stato {r.status_code}")
