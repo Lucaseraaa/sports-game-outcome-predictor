@@ -2,6 +2,8 @@ from app.api.DefaultApi import DefaultApi
 from app.constants import API_BASE_URL, API_TOKEN, LEAGUE_ID
 from datetime import datetime
 from app.models.Match import Matches
+from app.models.Statistics import Statistics
+from app.models.Team import Team
 
 class SoccerDataApi:
 
@@ -23,9 +25,16 @@ class SoccerDataApi:
 
         self.__current_year = year + 1 if month > 7 else year
 
-    def get_matches(self):
+    def get_matches(self) -> Matches:
         """
         Metodo che permette di estrarre tutti i prossimi match del campionato
+
+        Return:
+            lista di match d'interesse
+
+        Raises
+            ValidationError: errore di validazione della richiesta API
+            RequesException: errore stato non ok
         """
         matches_url = f"/matches"
 
@@ -41,6 +50,60 @@ class SoccerDataApi:
             "offset": 10
         }
 
-        matches = Matches.validate(api.get(params=params))
-        print(matches)
+        return Matches.model_validate(api.get(params=params))
         
+        
+    def get_match_detail(self, match_id: int) -> Statistics:
+        """
+        Metodo che permette di visualizzare i dettagli del match specificato
+
+        Args:
+            match_id: id del match da interrogare
+
+        Returns:
+            homeTeam: squadra in casa
+            awayTeam: squadra in trasferta
+            homeGoal: goal della squadra di casa
+            awayGoal: goal della squadra di trasferta
+            fullTimeResult: risultato finale (H, D, A)
+            homeShots: tiri in porta in casa
+            awayShots: tiri in porta in trasferta
+
+        """
+        match_url = f"/matches/{match_id}"
+
+        api = DefaultApi(
+            f"{self.__base_url}{match_url}",
+            self.__default_headers,
+        )
+
+        # Ottengo le statistiche che mi interessano
+        json_result = api.get(params={})[0]
+
+        goals = json_result.get("state").get("score").get("current").split(" - ")
+        goals_home, goals_away = int(goals[0]), int(goals[1])
+
+        statistics = json_result.get("statistics")
+        home_statistics, away_statistics = statistics[0].get('statistics'), statistics[1].get('statistics')
+        print(f"Statistic: {home_statistics}")
+        home_shot_on_target, away_shot_on_target = home_statistics[27].get('value'), away_statistics[27].get('value')
+
+        home_team = Team(
+            id=int(json_result.get("homeTeam").get("id")),
+            name=json_result.get("homeTeam").get("name")
+        )
+
+        away_team = Team(
+            id=int(json_result.get("awayTeam").get("id")),
+            name=json_result.get("awayTeam").get("name")
+        )
+
+        return Statistics(
+            homeTeam=home_team,
+            awayTeam=away_team,
+            homeGoal=goals_home,
+            awayGoal=goals_away,
+            fullTimeResult='H' if goals_home > goals_away else ('D' if goals_home == goals_away else 'A'),
+            homeShots=home_shot_on_target,
+            awayShots=away_shot_on_target
+        )
