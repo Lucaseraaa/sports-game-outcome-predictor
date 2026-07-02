@@ -1,18 +1,28 @@
 from app.api.DefaultApi import DefaultApi
+from app.constants import API_BASE_URL, API_TOKEN, LEAGUE_ID
+from datetime import datetime
+
 
 class SoccerDataApi:
 
-    __api_key: str
-    __base_url: str
-    __league_id: str
+    __api_key: str = API_TOKEN
+    __base_url: str = API_BASE_URL
+    __league_id: str = LEAGUE_ID
+    __current_year: int
     __default_headers: dict
 
-    def __init__(self, api_key: str, base_url: str, league_id: str) -> None:
-        
-        self.__api_key = api_key
-        self.__base_url = base_url
-        self.__league_id = league_id
+    def __init__(self) -> None:
+
+        # Header di default
         self.__default_headers = {"Content-Type": "application/json", "Accept-Encoding": "gzip"}
+
+        # Ottengo il mese e l'anno corrente, per comprendere l'anno del campionato
+        today = datetime.today()
+        datem = datetime(today.year, today.month, 1)
+        year, month = datem.year, datem.month
+
+        self.__current_year = year + 1 if month > 7 else year
+        
 
     def get_season_matches(self, season: str) -> dict:
         """

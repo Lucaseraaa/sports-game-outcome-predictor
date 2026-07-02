@@ -3,15 +3,12 @@ import requests
 class DefaultApi:
 
     __uri: str
-    __method: str
     __headers: dict
-    __body: dict 
 
-    def __init__(self, uri: str, headers: dict, body: dict) -> None:
+    def __init__(self, uri: str, headers: dict) -> None:
         
         self.__uri = uri
         self.__headers = headers
-        self.__body = body
 
     def get(self, params: dict) -> dict:
         
