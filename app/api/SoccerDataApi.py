@@ -1,7 +1,7 @@
 from app.api.DefaultApi import DefaultApi
 from app.constants import API_BASE_URL, API_TOKEN, LEAGUE_ID
 from datetime import datetime
-
+from app.models.Match import Matches
 
 class SoccerDataApi:
 
@@ -41,28 +41,6 @@ class SoccerDataApi:
             "offset": 10
         }
 
-        print(api.get(params=params))
-
-    def get_season_matches(self, season: str) -> dict:
-        """
-        Metodo che ritorna tutte le partite del campionato in una stagione specificata
-
-        Args:
-            season: stagione del campionato, da inserire nel formato aaaa-bbbb
-
-        Return:
-            dizionario contenente tutte le partite del campionato specificato
-        """
-
-        params = {
-            "season": season,
-            "league_id": self.__league_id,
-            "auth_token": self.__api_key
-        }
-
-        api = DefaultApi(
-            f"{self.__base_url}/matches",
-            self.__default_headers
-        )
-
-        return api.get(params=params)
+        matches = Matches.validate(api.get(params=params))
+        print(matches)
+        
