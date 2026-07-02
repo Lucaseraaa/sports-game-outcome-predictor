@@ -28,6 +28,7 @@ class SoccerDataApi:
         params = {
             "season": season,
             "league_id": self.__league_id,
+            "auth_token": self.__api_key
         }
 
         api = DefaultApi(

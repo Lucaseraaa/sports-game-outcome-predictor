@@ -12,23 +12,17 @@ class DefaultApi:
         self.__uri = uri
         self.__headers = headers
         self.__body = body
-    
-    def __modify_url(self, params: dict) -> None:
-        
-        for key, value in params.values():
-            append_uri += f"?{key}={value}" 
-
 
     def get(self, params: dict) -> dict:
 
         try:
             
-            self.__modify_url(params) # Modifico l'uri con i parametri d'interesse
-            r = requests.get(self.__uri, headers=self.__headers)
+            r = requests.get(self.__uri, headers=self.__headers, params=params)
 
         except Exception as e:
 
             print(f"Errore nella richiesta: {e}")
+            raise e
 
         if not r.ok:
             raise Exception(f"Messaggio ricevuto con stato {r.status_code}")
