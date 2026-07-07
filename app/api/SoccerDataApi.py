@@ -4,6 +4,7 @@ from datetime import datetime
 from app.models.Match import Matches
 from app.models.Statistics import Statistics
 from app.models.Team import Team
+from app.models.PlayerStatistics import PlayerStatistics
 
 class SoccerDataApi:
 
@@ -106,4 +107,36 @@ class SoccerDataApi:
             fullTimeResult='H' if goals_home > goals_away else ('D' if goals_home == goals_away else 'A'),
             homeShots=home_shot_on_target,
             awayShots=away_shot_on_target
+        )
+    
+    def get_match_teams_value(self, match_id: int):
+        """
+        Metodo che permette di ottenere il valore della rosa delle squadre di una partita
+
+        Args: 
+            match_id: id della partita selezionata
+        """
+
+        match_url = f"/box-score/{match_id}"
+
+        api = DefaultApi(
+            f"{self.__base_url}{match_url}",
+            self.__default_headers,
+        )
+
+        # Ottengo le statistiche che mi interessano
+        json_result = api.get(params={})
+        # print(json_result)
+
+        home_players, away_players = json_result[0].get("players"), json_result[1].get("players")
+        print(home_players)
+
+        # Labmda che mi prende i giocatori titolari
+        get_starting_players = lambda players: [player["fullName"] for player in players if player.get("isSubstitute") is False]
+
+        starters_home, starters_away = get_starting_players(home_players), get_starting_players(away_players)
+
+        return PlayerStatistics(
+            homePlayers=starters_home,
+            awayPlayers=starters_away
         )
