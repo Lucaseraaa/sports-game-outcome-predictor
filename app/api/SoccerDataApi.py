@@ -109,12 +109,15 @@ class SoccerDataApi:
             awayShots=away_shot_on_target
         )
     
-    def get_match_teams_value(self, match_id: int):
+    def get_match_teams_value(self, match_id: int) -> PlayerStatistics:
         """
         Metodo che permette di ottenere il valore della rosa delle squadre di una partita
 
         Args: 
             match_id: id della partita selezionata
+
+        Returns:
+            lista dei giocatori titolari della partita
         """
 
         match_url = f"/box-score/{match_id}"
