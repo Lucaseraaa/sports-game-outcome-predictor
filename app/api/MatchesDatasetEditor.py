@@ -84,6 +84,59 @@ class MatchesDatasetEditor:
 
         return winstreak
 
+    def __get_goal_on_shot_ratio(self, team: str, match_date: str, day: int) -> float:
+        """
+        Metodo utilizzato per calcolare il rapporto tra goal e tiri in porta 
+        di una squadra nelle ultime partite (max 5) della stagione in corso.
+
+        Args:
+            team: team di riferimento
+            match_date: data della partita in formato YYYY-MM-DD
+            day: giornata corrente di campionato
+
+        Returns:
+            Rapporto Goal / Tiri in porta (float). Ritorna 0.0 in caso di prima giornata
+            o se la squadra non ha effettuato tiri in porta.
+        """
+        # Caso limite: prima giornata
+        if day == 1:
+            return 0.0
+
+        # Inizio della stagione
+        year = int(match_date[:4])
+        month = int(match_date[5:7])
+        
+        season_start_year = year if month > 7 else year - 1
+        season_start = f"{season_start_year}-08-01"
+
+        df = self.__dataset.reset_index()
+        is_playing = (df["HomeTeam"] == team) | (df["AwayTeam"] == team)
+        is_current_season_past = (df["Date"] >= season_start) & (df["Date"] < match_date)
+        
+        # Ricerca
+        past_matches = df[is_playing & is_current_season_past].sort_values(by="Date", ascending=False).head(5)
+
+        if past_matches.empty:
+            return 0.0
+
+        total_goals = 0
+        total_shots_on_target = 0
+
+        # Calcolo della somma dei goal
+        for _, match in past_matches.iterrows():
+            if match["HomeTeam"] == team:
+                total_goals += match["FTHG"]
+                total_shots_on_target += match.get("HST", 0) 
+            else:
+                total_goals += match["FTAG"]
+                total_shots_on_target += match.get("AST", 0)
+
+        # Prevenzione divisione per 0
+        if total_shots_on_target == 0:
+            return 0.0
+
+        return total_goals / total_shots_on_target
+
 
     def add_in_dataset(self, day: int, statistics: Statistics) -> bool:
         """
@@ -119,6 +172,10 @@ class MatchesDatasetEditor:
         # Aggiunta della winstreak passando il parametro day
         baseline.append(self.__get_winstreak(statistics.homeTeam.name, statistics.matchDate, day))
         baseline.append(self.__get_winstreak(statistics.awayTeam.name, statistics.matchDate, day))
+
+        # Aggiunta del GoalOnShotRatio
+        baseline.append(self.__get_goal_on_shot_ratio(statistics.homeTeam.name, statistics.matchDate, day))
+        baseline.append(self.__get_goal_on_shot_ratio(statistics.awayTeam.name, statistics.matchDate, day))
 
         print(baseline)
         
