@@ -21,7 +21,7 @@ class PlayerHelper:
         self.__player_dataset = raw_dataset.set_index(["full_name"])
         self.__player_dataset = self.__player_dataset.sort_index()
 
-    def get_player_market_value(self, full_name: str) -> int:
+    def get_player_market_value(self, full_name: str) -> float:
         """
         Metodo che permette di recuperare il valore di mercato di un giocatore (che simula una chiamata API)
 
@@ -29,9 +29,15 @@ class PlayerHelper:
             full_name: nome e cognome del giocatore
 
         Return:
-            costo del giocatore (posto a 0 se non viene trovato)  
+            costo del giocatore (se non viene trovato)  
         """
 
-        player_value = self.__player_dataset.loc[(full_name)]
-        print(player_value)        
+        try:
+            
+            # Ricerco il valore del giocatore
+            return self.__player_dataset.loc[(full_name)].get("market_value").item()
+        
+        except KeyError:
+            
+            return 0.0 # Fallback: caso in cui il giocatore non esista nel dataframe
         
