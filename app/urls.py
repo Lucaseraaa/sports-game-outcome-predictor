@@ -1,5 +1,6 @@
 from app.views.LoginView import LoginView
 from app.views.HomeView import HomeView
+from app.views.BetView import BetView
 from flask import Flask
 
 def import_views(app: Flask) -> None:
@@ -11,9 +12,9 @@ def import_views(app: Flask) -> None:
     """
 
     # Importo tutte le classi View
-    login_view = LoginView.as_view('login')
     home_view = HomeView.as_view('home')
+    bet_view = BetView.as_view('bet')
 
     # Gestione di tutte le routes
-    app.add_url_rule('/login/', view_func=login_view, methods=['GET', 'POST'])
     app.add_url_rule('/', view_func=home_view, methods=['GET', ])
+    app.add_url_rule('/bet/', view_func=bet_view, methods=['GET', ])
