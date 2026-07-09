@@ -1,36 +1,59 @@
 from flask.views import MethodView
-from flask import render_template, request, session
-from app.api.PlayerHepler import PlayerHelper
+from flask import render_template, request
 from app.api.SoccerDataApi import SoccerDataApi
 
 class HomeView(MethodView):
 
     def get(self):
-        """
-        Metodo che mostra la pagina home con filtri dinamici per stagione e giornata.
-        """
-        # Recuperiamo i filtri dall'URL. Se non ci sono, impostiamo i valori di default.
-        stagione_selezionata = request.args.get('anno', '2025-2026')
-        giornata_selezionata = request.args.get('giornata', '1')
+        # 1. Recuperiamo i valori stringa inviati dal form HTML (con i default di fallback)
+        stagione_stringa = request.args.get('anno', '2025-2026')
+        giornata_stringa = request.args.get('giornata', '1')
+        
+        # Genero le 38 giornate per il menu a tendina
+        giornate_disponibili = [str(i) for i in range(1, 39)]
 
-        # Logica in Python per decidere quali giornate mostrare nella tendina
-        if stagione_selezionata == '2025-2026':
-            # Genera le 38 giornate
-            giornate_disponibili = [str(i) for i in range(1, 39)]
-        else:
-            # Per la nuova stagione 2026-2027 permette solo il turno Live futuro
-            giornate_disponibili = ['Prossima Giornata']
-            giornata_selezionata = 'Prossima Giornata'
+        # Conversione per l'API, trasformo le stringhe in interi
+        season_int = int(stagione_stringa.split('-')[0])
+        day_int = int(giornata_stringa)
 
-        # 3. QUI in futuro userai la tua SoccerDataApi o i tuoi modelli per estrarre i match reali
-        # es: partite = SoccerDataApi.get_matches(stagione_selezionata, giornata_selezionata)
-        partite_estratte = [] 
+        # Istazio il client API
+        api_client = SoccerDataApi()
 
-        # Passiamo tutte le variabili calcolate da Python a Jinja
+        # Chiamo il metodo get_matches gestendo eventuali errori 
+        try:
+            matches_pydantic = api_client.get_matches(season=season_int, day=day_int)
+        except Exception as e:
+            print(f"Errore durante il recupero dei match dall'API: {e}")
+            matches_pydantic = None
+
+
+        partite_estratte = []
+        
+        if matches_pydantic and hasattr(matches_pydantic, 'data'):
+            for match in matches_pydantic.data:
+
+                # Accediamo alle proprietà del singolo match 
+                squadra_casa = match.homeTeam.name    
+                squadra_trasferta = match.awayTeam.name
+
+                # AGGIUNGERE PREDICTION QUA ---------------------------------------------
+                prediction = "1X"
+                p1, px, p2 = 45, 35, 20
+
+                partite_estratte.append({
+                    "home_team": squadra_casa,
+                    "away_team": squadra_trasferta,
+                    "prediction": prediction,
+                    "prob_1": p1,
+                    "prob_X": px,
+                    "prob_2": p2
+                })
+
         return render_template(
             "home.html",
-            stagione_corrente=stagione_selezionata,
-            giornata_corrente=giornata_selezionata,
+            stagione_corrente=stagione_stringa,
+            giornata_corrente=giornata_stringa,
             giornate_opzioni=giornate_disponibili,
             partite=partite_estratte
         )
+    
