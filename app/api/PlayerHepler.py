@@ -11,7 +11,7 @@ class PlayerHelper:
         
         # Importazione del dataset statico del costo dei giocatori 
         raw_dataset = pd.read_csv(dataframe_path)
-        raw_dataset= raw_dataset.dropna() # Eliminazione delle righe contenenti un null
+        raw_dataset = raw_dataset.dropna() # Eliminazione delle righe contenenti un null
 
         # C
         raw_dataset["full_name"] = raw_dataset["first_name"] + " " + raw_dataset["last_name"]
