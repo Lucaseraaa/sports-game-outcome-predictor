@@ -9,6 +9,10 @@ class HomeView(MethodView):
         """
         Metodo che mostra la pagina home con filtri dinamici per stagione e giornata.
         """
+
+        s = SoccerDataApi()
+        s.get_match_detail(1172799626)
+
         # Recuperiamo i filtri dall'URL. Se non ci sono, impostiamo i valori di default.
         stagione_selezionata = request.args.get('anno', '2025-2026')
         giornata_selezionata = request.args.get('giornata', '1')

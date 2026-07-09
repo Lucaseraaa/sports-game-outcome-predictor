@@ -5,27 +5,26 @@ from app.models.Match import Matches
 from app.models.Statistics import Statistics
 from app.models.Team import Team
 from app.models.PlayerStatistics import PlayerStatistics
+from app.api.MatchesDatasetEditor import MatchesDatasetEditor
 from app.api.PlayerHepler import PlayerHelper
+
+# Casi speciali
+special = {
+    "AC Milan": "Milan",
+    "AS Roma": "Roma"
+}
 
 class SoccerDataApi:
 
     __api_key: str = API_TOKEN
     __base_url: str = API_BASE_URL
     __league_id: str = LEAGUE_ID
-    __current_year: int
     __default_headers: dict
 
     def __init__(self) -> None:
 
         # Header di default
         self.__default_headers = {"Content-Type": "application/json", "Accept-Encoding": "gzip", "x-rapidapi-key": self.__api_key}
-
-        # Ottengo il mese e l'anno corrente, per comprendere l'anno del campionato
-        today = datetime.today()
-        datem = datetime(today.year, today.month, 1)
-        year, month = datem.year, datem.month
-
-        self.__current_year = year + 1 if month > 7 else year
 
     def get_matches(self, season: int, day: int) -> Matches:
         """
@@ -101,9 +100,10 @@ class SoccerDataApi:
 
         # Ottengo le statistiche che mi interessano
         json_result = api.get(params={})[0]
-
+        print(json_result)
         goals = json_result.get("state").get("score").get("current").split(" - ")
         goals_home, goals_away = int(goals[0]), int(goals[1])
+        date = datetime.strptime(json_result.get("date"), "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y-%m-%d")
 
         statistics = json_result.get("statistics")
         home_statistics, away_statistics = statistics[0].get('statistics'), statistics[1].get('statistics')
@@ -112,23 +112,28 @@ class SoccerDataApi:
 
         home_team = Team(
             id=int(json_result.get("homeTeam").get("id")),
-            name=json_result.get("homeTeam").get("name")
+            name=special[json_result.get("homeTeam").get("name")] if json_result.get("homeTeam").get("name") in special else json_result.get("homeTeam").get("name") 
         )
 
         away_team = Team(
             id=int(json_result.get("awayTeam").get("id")),
-            name=json_result.get("awayTeam").get("name")
+            name=special[json_result.get("awayTeam").get("name")] if json_result.get("awayTeam").get("name") in special else json_result.get("awayTeam").get("name") 
         )
 
-        return Statistics(
+        s = Statistics(
             homeTeam=home_team,
             awayTeam=away_team,
             homeGoal=goals_home,
             awayGoal=goals_away,
             fullTimeResult='H' if goals_home > goals_away else ('D' if goals_home == goals_away else 'A'),
             homeShots=home_shot_on_target,
-            awayShots=away_shot_on_target
+            awayShots=away_shot_on_target,
+            matchDate=date
         )
+
+        md = MatchesDatasetEditor("app/static/result.csv")
+        md.add_in_dataset(1, s)
+        return s
     
     def get_match_teams_value(self, match_id: int) -> PlayerStatistics:
         """

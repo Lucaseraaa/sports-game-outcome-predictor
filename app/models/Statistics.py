@@ -16,3 +16,6 @@ class Statistics(BaseModel):
     # Shots
     homeShots: int
     awayShots: int
+
+    # Date
+    matchDate: str
