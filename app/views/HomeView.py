@@ -1,5 +1,6 @@
 from flask.views import MethodView
 from flask import render_template, request, session
+from app.api.PlayerHepler import PlayerHelper
 from app.api.SoccerDataApi import SoccerDataApi
 
 class HomeView(MethodView):
@@ -8,6 +9,9 @@ class HomeView(MethodView):
         """
         Metodo che mostra la pagina home con filtri dinamici per stagione e giornata.
         """
+        
+        #p = PlayerHelper("app/static/market-values.csv")
+        #print(type(p.get_player_market_value("Marcus Thuram")))
 
         # Recuperiamo i filtri dall'URL. Se non ci sono, impostiamo i valori di default.
         stagione_selezionata = request.args.get('anno', '2025-2026')

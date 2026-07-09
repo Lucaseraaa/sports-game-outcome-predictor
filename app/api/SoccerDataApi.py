@@ -5,6 +5,7 @@ from app.models.Match import Matches
 from app.models.Statistics import Statistics
 from app.models.Team import Team
 from app.models.PlayerStatistics import PlayerStatistics
+from app.api.PlayerHepler import PlayerHelper
 
 class SoccerDataApi:
 
@@ -117,7 +118,7 @@ class SoccerDataApi:
             match_id: id della partita selezionata
 
         Returns:
-            lista dei giocatori titolari della partita
+            costi delle rose delle squadre
         """
 
         match_url = f"/box-score/{match_id}"
@@ -129,17 +130,18 @@ class SoccerDataApi:
 
         # Ottengo le statistiche che mi interessano
         json_result = api.get(params={})
-        # print(json_result)
 
         home_players, away_players = json_result[0].get("players"), json_result[1].get("players")
-        print(home_players)
 
-        # Labmda che mi prende i giocatori titolari
-        get_starting_players = lambda players: [player["fullName"] for player in players if player.get("isSubstitute") is False]
-
-        starters_home, starters_away = get_starting_players(home_players), get_starting_players(away_players)
-
+        # Labmda che mi prende il costo dei titolari
+        helper = PlayerHelper("app/static/market-values.csv")
+        get_starting_players_values = lambda players: sum(
+            helper.get_player_market_value(player["fullName"]) 
+            for player in players if player.get("isSubstitute") is False
+        )
+        starters_home, starters_away = get_starting_players_values(home_players), get_starting_players_values(away_players)
+        
         return PlayerStatistics(
-            homePlayers=starters_home,
-            awayPlayers=starters_away
+            homePlayersValue=starters_home,
+            awayPlayersValue=starters_away
         )
