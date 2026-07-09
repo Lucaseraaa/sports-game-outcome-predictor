@@ -27,14 +27,18 @@ class SoccerDataApi:
 
         self.__current_year = year + 1 if month > 7 else year
 
-    def get_matches(self) -> Matches:
+    def get_matches(self, season: int, day: int) -> Matches:
         """
         Metodo che permette di estrarre tutti i prossimi match del campionato
 
-        Return:
+        Args:
+            season: stagione del campionato (inserire la prima nell'AA-20XX-20YY)
+            day: giornata (da 1 a 38)
+
+        Returns:
             lista di match d'interesse
 
-        Raises
+        Raises:
             ValidationError: errore di validazione della richiesta API
             RequesException: errore stato non ok
         """
@@ -45,11 +49,27 @@ class SoccerDataApi:
             self.__default_headers,
         )
 
+        # Prima chiamata per ottenere il numero di partite presenti
+        info_params = {
+            "leagueId": self.__league_id,
+            "season": season,
+            "limit": 1,
+            "offset": 500
+        }
+
+        info_request = api.get(params=info_params)
+        total_count = int(info_request.get("pagination").get("totalCount"))
+
+        # Invio richieste fino ad arrivare alle partite che mi interessano
+        # Per la giornata devo scegliere l'offset opposto alla partita
+        day_offset = (int(total_count/10) - day) * 10
+
+        # Ci interessano solo 10 partite 
         params = {
             "leagueId": self.__league_id,
-            "season": self.__current_year,
+            "season": season,
             "limit": 10, # Interessano solo le ultime 10 parite
-            "offset": 10
+            "offset": day_offset
         }
 
         return Matches.model_validate(api.get(params=params))
