@@ -17,5 +17,17 @@ Per la corretta organizzazione del progetto, esso viene diviso in moduli, ognuno
 ## Notebook
 Il modulo di notebook viene utilizzato per le operazioni di **data analysis** e di **machine learning**, data la sua comodità in questi ambiti: è infatti possibile visualizzare le variabili e le strutture dati graficamente (utile per i dataframe di Pandas e i grafici di Matplotlib); inoltre è possibile separare il codice in varie "celle", opportunamente commentate per separare le diverse funzionalità che vogliamo implementare. 
 
-### feature-engineering.ipynb
-Il notebook in questione viene utilizzato per le operazioni di data analysis, ovvero per trasformare il dataset utilizzato in un dataset che contenga degli indici di nostro interesse (quelli da noi ritenuti più importanti per il nostro obiettivo). vengono poi visualizzati dei grafici che descrivono alcuni comportamenti statistici del dataset. 
+### App 
+Questo modulo contiene l'app vera e propria, ossia il sito web creato con Flask, che permette di visualizzare previsioni di risultati delle partite di Serie A, attraverso l'ausilio del modello creato nei notebook. L'applicazione utilizza come fonte di dati delle nuove partite le API di [highlighty](https://highlightly.net/). Per il corretto funzionamento delle API è stato creato un file .env (non messo in gitignore per comodità, data la necessità di presentare il progetto) che contiene le credenziali necessarie. 
+
+# Deploy
+
+## Locale
+Per il deploy in locale utilizzare il seguente comando:
+
+```bash
+python -m app
+```
+
+
+L'applicazione verrà esposta al seguente indirizzo `localhost:5000`.
