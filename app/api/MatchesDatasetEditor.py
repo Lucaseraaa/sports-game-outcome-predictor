@@ -227,6 +227,103 @@ class MatchesDatasetEditor:
 
         return home_wins / total_home_matches
     
+    def __get_z_goals(self, team: str, match_date: str, day: int) -> float:
+        """
+        Calcola lo Z-score dei goal fatti dalla squadra rispetto al resto della lega,
+        prendendo in considerazione le partite della stagione giocate fino a quel momento.
+        
+        Args:
+            team: team di riferimento
+            match_date: data della partita in formato YYYY-MM-DD
+            day: giornata corrente di campionato
+
+        Returns:
+            Valore Z-Score per i goal (float). Ritorna 0.0 in caso di prima giornata o deviazione nulla.
+        """
+        # Caso limite
+        if day <= 1:
+            return 0.0
+            
+        year = int(match_date[:4])
+        month = int(match_date[5:7])
+        season_start_year = year if month > 7 else year - 1
+        season_start = f"{season_start_year}-08-01"
+
+        df = self.__dataset.reset_index()
+
+        is_current_season_past = (df["Date"] >= season_start) & (df["Date"] < match_date)
+        past_matches = df[is_current_season_past]
+
+        if past_matches.empty:
+            return 0.0
+
+        home_goals = past_matches[["HomeTeam", "FTHG"]].rename(columns={"HomeTeam": "Team", "FTHG": "Goals"})
+        away_goals = past_matches[["AwayTeam", "FTAG"]].rename(columns={"AwayTeam": "Team", "FTAG": "Goals"})
+        
+        all_goals = pd.concat([home_goals, away_goals])
+
+        team_avg_goals = all_goals.groupby("Team")["Goals"].mean()
+        team_avg = team_avg_goals.get(team, 0.0)
+
+        league_mean = team_avg_goals.mean()
+        league_std = team_avg_goals.std() 
+
+        if pd.isna(league_std) or league_std == 0.0:
+            return 0.0
+
+        return (team_avg - league_mean) / league_std
+    
+    def __get_z_wins(self, team: str, match_date: str, day: int) -> float:
+        """
+        Calcola lo Z-score delle vittorie della squadra rispetto al resto della lega,
+        prendendo in considerazione le partite della stagione giocate fino a quel momento.
+        
+        Args:
+            team: team di riferimento
+            match_date: data della partita in formato YYYY-MM-DD
+            day: giornata corrente di campionato
+
+        Returns:
+            Valore Z-Score per le vittorie (float). Ritorna 0.0 in caso di prima giornata o deviazione nulla.
+        """
+        
+        # Caso limite
+        if day <= 1:
+            return 0.0
+            
+        year = int(match_date[:4])
+        month = int(match_date[5:7])
+        season_start_year = year if month > 7 else year - 1
+        season_start = f"{season_start_year}-08-01"
+
+        df = self.__dataset.reset_index()
+
+        is_current_season_past = (df["Date"] >= season_start) & (df["Date"] < match_date)
+        past_matches = df[is_current_season_past]
+
+        if past_matches.empty:
+            return 0.0
+
+        home_wins = past_matches[["HomeTeam", "FTR"]].rename(columns={"HomeTeam": "Team"})
+        home_wins["Win"] = (home_wins["FTR"] == "H").astype(int)
+        
+        away_wins = past_matches[["AwayTeam", "FTR"]].rename(columns={"AwayTeam": "Team"})
+        away_wins["Win"] = (away_wins["FTR"] == "A").astype(int)
+        
+        all_wins = pd.concat([home_wins[["Team", "Win"]], away_wins[["Team", "Win"]]])
+
+        team_avg_wins = all_wins.groupby("Team")["Win"].mean()
+
+        team_avg = team_avg_wins.get(team, 0.0)
+
+        league_mean = team_avg_wins.mean()
+        league_std = team_avg_wins.std()
+
+        if pd.isna(league_std) or league_std == 0.0:
+            return 0.0
+
+        return (team_avg - league_mean) / league_std
+
 
     def add_in_dataset(self, day: int, statistics: Statistics) -> bool:
         """
@@ -274,6 +371,14 @@ class MatchesDatasetEditor:
         # Calcolo HomeAdvantage
         baseline.append(self.__get_home_advantage(statistics.homeTeam.name, statistics.matchDate, day))
         
+        # Calcolo dello Z_Goals_Season
+        baseline.append(self.__get_z_goals(statistics.homeTeam.name, statistics.matchDate, day))
+        baseline.append(self.__get_z_goals(statistics.awayTeam.name, statistics.matchDate, day))
+
+        # Calcolo dello Z_Away_Season
+        baseline.append(self.__get_z_wins(statistics.homeTeam.name, statistics.matchDate, day))
+        baseline.append(self.__get_z_wins(statistics.awayTeam.name, statistics.matchDate, day))
+
         print(baseline)
         
         return True 
