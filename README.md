@@ -23,9 +23,10 @@ Questo modulo contiene l'app vera e propria, ossia il sito web creato con Flask,
 # Deploy
 
 ## Locale
-Per il deploy in locale utilizzare il seguente comando:
+Per il deploy in locale utilizzare i seguenti comandi (all'interno di un ambiente virtuale):
 
 ```bash
+pip install -r requirements.txt 
 python -m app
 ```
 
