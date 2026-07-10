@@ -5,6 +5,7 @@ from app.api.SoccerDataApi import SoccerDataApi
 class HomeView(MethodView):
 
     def get(self):
+        
         # 1. Recuperiamo i valori stringa inviati dal form HTML (con i default di fallback)
         stagione_stringa = request.args.get('anno', '2025-2026')
         giornata_stringa = request.args.get('giornata', '1')

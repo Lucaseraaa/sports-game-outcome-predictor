@@ -184,6 +184,50 @@ class MatchesDatasetEditor:
 
         return wins / total_matches
 
+    def __get_home_advantage(self, team: str, match_date: str, day: int) -> float:
+        """
+        Metodo utilizzato per calcolare l'Home Advantage, ovvero il rapporto tra 
+        vittorie in casa e partite giocate in casa nelle ultime (max 5) della stagione in corso.
+
+        Args:
+            team: team di riferimento
+            match_date: data della partita in formato YYYY-MM-DD
+            day: giornata corrente di campionato
+
+        Returns:
+            Rapporto Vittorie in casa / Partite in casa disputate (float).
+            Ritorna 0.0 in caso di prima giornata o se non ci sono partite in casa precedenti.
+        """
+
+        # Caso limite
+        if day == 1:
+            return 0.0
+
+        year = int(match_date[:4])
+        month = int(match_date[5:7])
+        
+        season_start_year = year if month > 7 else year - 1
+        season_start = f"{season_start_year}-08-01"
+
+        df = self.__dataset.reset_index()
+
+        is_playing_home = (df["HomeTeam"] == team)
+        is_current_season_past = (df["Date"] >= season_start) & (df["Date"] < match_date)
+        
+        past_home_matches = df[is_playing_home & is_current_season_past].sort_values(by="Date", ascending=False).head(5)
+        total_home_matches = len(past_home_matches)
+
+        if total_home_matches == 0:
+            return 0.0
+
+        home_wins = 0
+        for _, match in past_home_matches.iterrows():
+            if match["FTR"] == "H":
+                home_wins += 1
+
+        return home_wins / total_home_matches
+    
+
     def add_in_dataset(self, day: int, statistics: Statistics) -> bool:
         """
         Metodo che permette di inserire un record (data + squadra casa + squadra trasferta) nel dataset
@@ -227,6 +271,9 @@ class MatchesDatasetEditor:
         baseline.append(self.__get_point_to_match_ratio(statistics.homeTeam.name, statistics.matchDate, day))
         baseline.append(self.__get_point_to_match_ratio(statistics.awayTeam.name, statistics.matchDate, day))
 
+        # Calcolo HomeAdvantage
+        baseline.append(self.__get_home_advantage(statistics.homeTeam.name, statistics.matchDate, day))
+        
         print(baseline)
         
         return True 
