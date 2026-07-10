@@ -6,11 +6,6 @@ class HomeView(MethodView):
 
     def get(self):
 
-        soccer = SoccerDataApi()
-        soccer.get_match_detail(1172799626)
-
-        return 
-
         # 1. Recuperiamo i valori stringa inviati dal form HTML (con i default di fallback)
         stagione_stringa = request.args.get('anno', '2025-2026')
         giornata_stringa = request.args.get('giornata', '1')

@@ -1,7 +1,6 @@
 import pandas as pd
 from app.models.Statistics import Statistics
-
-# Casi particolari
+from app.models.PredictionFeatures import PredictionFeatures
 
 
 class MatchesDatasetEditor:
@@ -324,6 +323,31 @@ class MatchesDatasetEditor:
 
         return (team_avg - league_mean) / league_std
 
+    def generate_prediction_features(self, day: int, statistics: Statistics) -> PredictionFeatures:
+        """
+        Metodo utilizzato per generare le feature necessarie per la predizione 
+        Args:
+            day: giornata di campionato
+            statistics: statistiche della partita
+        
+        Returns:
+            istanza della classe che indica i valori necessari alle previsioni
+        """
+
+        return PredictionFeatures(
+            homeWinStreak=self.__get_winstreak(statistics.homeTeam.name, statistics.matchDate, day),
+            awayWinStreak=self.__get_winstreak(statistics.awayTeam.name, statistics.matchDate, day),
+            homeGoalOnShotRatio=self.__get_goal_on_shot_ratio(statistics.homeTeam.name, statistics.matchDate, day),
+            awayGoalOnShotRatio=self.__get_goal_on_shot_ratio(statistics.awayTeam.name, statistics.matchDate, day),
+            homePointToMatchRatio=self.__get_point_to_match_ratio(statistics.homeTeam.name, statistics.matchDate, day),
+            awayPointToMatchRatio=self.__get_point_to_match_ratio(statistics.awayTeam.name, statistics.matchDate, day),
+            homeAdvantage=self.__get_home_advantage(statistics.homeTeam.name, statistics.matchDate, day),
+            homeZGoalsSeason=self.__get_z_goals(statistics.homeTeam.name, statistics.matchDate, day),
+            awayZGoalsSeason=self.__get_z_goals(statistics.awayTeam.name, statistics.matchDate, day),
+            homeZWinsSeason=self.__get_z_wins(statistics.homeTeam.name, statistics.matchDate, day),
+            awayZWinsSeason=self.__get_z_wins(statistics.awayTeam.name, statistics.matchDate, day)
+        )
+
 
     def add_in_dataset(self, day: int, statistics: Statistics) -> bool:
         """
@@ -356,28 +380,23 @@ class MatchesDatasetEditor:
 
         baseline.append(f"{start_year}-{start_year+1}")
 
-        # Aggiunta della winstreak passando il parametro day
-        baseline.append(self.__get_winstreak(statistics.homeTeam.name, statistics.matchDate, day))
-        baseline.append(self.__get_winstreak(statistics.awayTeam.name, statistics.matchDate, day))
+        # Ottengo le feature di predizione e le unisco
+        features = self.generate_prediction_features(day, statistics)
 
-        # Aggiunta del GoalOnShotRatio
-        baseline.append(self.__get_goal_on_shot_ratio(statistics.homeTeam.name, statistics.matchDate, day))
-        baseline.append(self.__get_goal_on_shot_ratio(statistics.awayTeam.name, statistics.matchDate, day))
+        baseline += [
+            features.homeWinStreak,
+            features.awayWinStreak,
+            features.homeGoalOnShotRatio,
+            features.awayGoalOnShotRatio,
+            features.homePointToMatchRatio,
+            features.awayPointToMatchRatio,
+            features.homeAdvantage,
+            features.homeZGoalsSeason,
+            features.awayZGoalsSeason,
+            features.homeZWinsSeason,
+            features.awayZWinsSeason
+        ]
 
-        # Aggiunta del PointToMatchRatio
-        baseline.append(self.__get_point_to_match_ratio(statistics.homeTeam.name, statistics.matchDate, day))
-        baseline.append(self.__get_point_to_match_ratio(statistics.awayTeam.name, statistics.matchDate, day))
-
-        # Calcolo HomeAdvantage
-        baseline.append(self.__get_home_advantage(statistics.homeTeam.name, statistics.matchDate, day))
-        
-        # Calcolo dello Z_Goals_Season
-        baseline.append(self.__get_z_goals(statistics.homeTeam.name, statistics.matchDate, day))
-        baseline.append(self.__get_z_goals(statistics.awayTeam.name, statistics.matchDate, day))
-
-        # Calcolo dello Z_Away_Season
-        baseline.append(self.__get_z_wins(statistics.homeTeam.name, statistics.matchDate, day))
-        baseline.append(self.__get_z_wins(statistics.awayTeam.name, statistics.matchDate, day))
 
         print(baseline)
         
