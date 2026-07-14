@@ -67,6 +67,43 @@ class Odds:
 
         # Merge dei due dataset
         self.__merge_dataset()
-        print(self.__merged_dataset)
+        print(self.__merged_dataset.head(10))
+
+    
+
+    def backtest(self, season: int) -> float:
+        """
+        Metodo che permette di fare un 'backtest' del modello selezionato, ovvero scommettere sulle partite già
+        avvenute (con delle quote fissate) utilizzando il nostro modello, per verificare in output quanto avremmo
+        vinto.
+
+        Args:
+            season: stagione su cui testare il modello (disponibili solo 2024, 2025)
+
+        Returns:
+            guadagno effettivo 
+        """
+        import random
+
+        # Ottengo le row della stagione inserita
+        selected_df = self.__merged_dataset[self.__merged_dataset["Season_x"] == f"{season}-{season+1}"]
+        result_dict = {0: 'H', 1: 'D', 2: 'A'}
+
+        # TODO: utilizzare modello corretto, per ora baseline
+        cash_in = 10*len(selected_df) 
+        earn = 0
+        
+        for _, row in selected_df.iterrows():
+            
+            # Previsione
+            prevision = random.randint(0, 2)
+
+            # Verifico la correttezza della previsione
+            result = row['FTR']
+
+            if result_dict[prevision] == result:
+                earn += 10*float(row[result_dict[prevision]])
+
+        return earn - cash_in
 
         
