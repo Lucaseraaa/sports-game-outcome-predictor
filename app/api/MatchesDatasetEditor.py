@@ -429,7 +429,7 @@ class MatchesDatasetEditor:
             homeZWinsSeason=self.__get_z_wins(statistics.homeTeam.name, statistics.matchDate, day),
             awayZWinsSeason=self.__get_z_wins(statistics.awayTeam.name, statistics.matchDate, day),
             eloHome=self.__get_elo(staticmethod.homeTeam.name, statistics.matchDate, day),
-            eloHome=self.__get_elo(staticmethod.awayTeam.name, statistics.matchDate, day),
+            eloAway=self.__get_elo(staticmethod.awayTeam.name, statistics.matchDate, day),
         )
 
 
