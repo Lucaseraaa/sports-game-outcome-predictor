@@ -1,4 +1,4 @@
-from app.views.LoginView import LoginView
+from app.views.MatchDetailsView import MatchDetailsView
 from app.views.HomeView import HomeView
 from app.views.BetView import BetView
 from flask import Flask
@@ -18,3 +18,7 @@ def import_views(app: Flask) -> None:
     # Gestione di tutte le routes
     app.add_url_rule('/', view_func=home_view, methods=['GET', ])
     app.add_url_rule('/bet/', view_func=bet_view, methods=['GET', ])
+    app.add_url_rule(
+    '/match/<string:match_id>',
+    view_func=MatchDetailsView.as_view('match_detail')
+    )   
