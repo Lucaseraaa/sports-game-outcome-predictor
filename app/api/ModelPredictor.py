@@ -37,7 +37,7 @@ class ModelPredictor:
         # Se lo scaler è presente, trasforma X, altrimenti usa X non modificato
         X_scaled = self.__scaler.transform(X) if self.__scaler is not None else X
         
-        # Usa predict_proba() invece di predict()
+        
         probabilities = self.__model.predict_proba(X_scaled)
         
         return probabilities
