@@ -323,6 +323,88 @@ class MatchesDatasetEditor:
 
         return (team_avg - league_mean) / league_std
 
+    def __expected_score(self, rating_a: float, rating_b: float) -> float:
+        """Calcola la probabilità di vittoria attesa (Expected Score)."""
+        return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+
+    def __goal_multiplier(self, goal_diff: int) -> float:
+        """Calcola il moltiplicatore in base alla differenza reti."""
+        margin = abs(goal_diff)
+        if margin <= 1:
+            return 1.0
+        elif margin == 2:
+            return 1.5
+        else:
+            return (11.0 + margin) / 8.0
+
+    def __get_elo(self, team: str, match_date: str, day: int) -> float:
+        """
+        Calcola l'Elo rating della squadra simulando i risultati storici fino 
+        alla data della partita attuale.
+        
+        Args:
+            team: team di riferimento
+            match_date: data della partita in formato YYYY-MM-DD
+            day: giornata corrente di campionato
+
+        Returns:
+            Valore Elo (float). Ritorna il valore di default (1500.0) in caso di assenza di dati storici.
+        """
+        # Parametri dell'ELO
+        initial_elo = 1500.0
+        home_advantage = 100.0
+        k_factor = 20.0
+        
+        df = self.__dataset.reset_index()
+
+        # Per l'ELO prendiamo TUTTO lo storico precedente alla data del match, non solo la stagione corrente.
+        # È fondamentale ordinarli per data per calcolare correttamente l'evoluzione dell'Elo.
+        past_matches = df[df["Date"] < match_date].sort_values(by='Date')
+
+        if past_matches.empty:
+            return initial_elo
+
+        current_elo = {}
+
+        # Ricalcola l'Elo iterativamente per le partite passate
+        for _, row in past_matches.iterrows():
+            home_team = row['HomeTeam']
+            away_team = row['AwayTeam']
+            
+            hg = row['FTHG']
+            ag = row['FTAG']
+
+            # Gestione valori nulli: salta la partita se non c'è un risultato valido
+            if pd.isna(hg) or pd.isna(ag):
+                continue
+
+            # Inizializzazione delle nuove squadre
+            if home_team not in current_elo: current_elo[home_team] = initial_elo
+            if away_team not in current_elo: current_elo[away_team] = initial_elo
+
+            elo_h_pre = current_elo[home_team]
+            elo_a_pre = current_elo[away_team]
+
+            e_home = self.__expected_score(elo_h_pre + home_advantage, elo_a_pre)
+            e_away = self.__expected_score(elo_a_pre, elo_h_pre + home_advantage)
+
+            # Assegnazione punti vittoria/pareggio/sconfitta
+            if hg > ag:
+                s_home, s_away = 1.0, 0.0
+            elif hg < ag:
+                s_home, s_away = 0.0, 1.0
+            else:
+                s_home, s_away = 0.5, 0.5
+
+            g = self.__goal_multiplier(hg - ag)
+            
+            # Aggiornamento
+            current_elo[home_team] = elo_h_pre + k_factor * g * (s_home - e_home)
+            current_elo[away_team] = elo_a_pre + k_factor * g * (s_away - e_away)
+
+        # Ritorna l'Elo calcolato per la squadra richiesta, o 1500.0 se la squadra è debuttante
+        return current_elo.get(team, initial_elo)
+
     def generate_prediction_features(self, day: int, statistics: Statistics) -> PredictionFeatures:
         """
         Metodo utilizzato per generare le feature necessarie per la predizione 
@@ -345,7 +427,9 @@ class MatchesDatasetEditor:
             homeZGoalsSeason=self.__get_z_goals(statistics.homeTeam.name, statistics.matchDate, day),
             awayZGoalsSeason=self.__get_z_goals(statistics.awayTeam.name, statistics.matchDate, day),
             homeZWinsSeason=self.__get_z_wins(statistics.homeTeam.name, statistics.matchDate, day),
-            awayZWinsSeason=self.__get_z_wins(statistics.awayTeam.name, statistics.matchDate, day)
+            awayZWinsSeason=self.__get_z_wins(statistics.awayTeam.name, statistics.matchDate, day),
+            eloHome=self.__get_elo(staticmethod.homeTeam.name, statistics.matchDate, day),
+            eloHome=self.__get_elo(staticmethod.awayTeam.name, statistics.matchDate, day),
         )
 
 

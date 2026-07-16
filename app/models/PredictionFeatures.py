@@ -24,4 +24,7 @@ class PredictionFeatures(BaseModel):
     homeZWinsSeason: float
     awayZWinsSeason: float
     
+    # ELO
+    eloHome: float
+    eloAway: float
     
