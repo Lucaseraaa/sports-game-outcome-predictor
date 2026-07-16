@@ -79,6 +79,7 @@
                     <th class="py-4 px-6">Match / Squadre</th>
                     <th class="py-4 px-4 text-center w-28">Predizione</th>
                     <th class="py-4 px-4 text-center w-80">Probabilità (1 - X - 2)</th>
+                    <th class="py-4 px-4 text-center w-24">Dettagli</th> 
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-700/60 text-sm">
@@ -124,7 +125,18 @@
                                     </div>
                                 </div>
                             </td>
+                            
 
+                            <!--IL PULSANTE DI DETTAGLIO -->
+                            <td class="py-4 px-4 text-center">
+                            <!-- Questo link prende l'ID del match corrente e crea l'URL per andarci -->
+                                <a href="{{ url_for('match_detail', match_id=match.id) }}" 
+                                   class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-900 hover:bg-emerald-500 hover:text-gray-950 text-gray-400 border border-gray-700/50 hover:border-emerald-500 transition duration-150 shadow-inner"
+                                   title="Vedi Analisi IA">
+                                <!-- Icona del grafico -->
+                                <i class="fa-solid fa-chart-simple text-sm"></i>
+                                </a>
+                            </td>
                         </tr>
                     {% endfor %}
                 {% else %}

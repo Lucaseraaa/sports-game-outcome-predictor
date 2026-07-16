@@ -42,7 +42,12 @@ class HomeView(MethodView):
                 prediction = "1X"
                 p1, px, p2 = 45, 35, 20
 
+
+                # ESTRAZIONE DELL'ID
+                id_match = getattr(match, 'id', None) or f"{squadra_casa}-{squadra_trasferta}"
+
                 partite_estratte.append({
+                    "id": id_match,
                     "home_team": squadra_casa,
                     "away_team": squadra_trasferta,
                     "prediction": prediction,
