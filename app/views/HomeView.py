@@ -2,10 +2,16 @@ from flask.views import MethodView
 from flask import render_template, request
 from app.api.SoccerDataApi import SoccerDataApi
 from app.api.Odds import Odds
+from app.api.ModelPredictor import ModelPredictor
 
 class HomeView(MethodView):
 
     def get(self):
+
+        o = Odds("app/static/odds.csv", "app/static/result.csv")
+        print(o.backtest(2025))
+
+        return 
 
         # 1. Recuperiamo i valori stringa inviati dal form HTML (con i default di fallback)
         stagione_stringa = request.args.get('anno', '2025-2026')
