@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Dettagli Match{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8">
+    
+    <!-- Pulsante Indietro -->
+    <a href="{{ url_for('home') }}" class="inline-flex items-center space-x-2 text-sm text-gray-400 hover:text-emerald-400 transition">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Torna al Palinsesto</span>
+    </a>
+
+    <!-- INTESTAZIONE MATCH -->
+    <div class="bg-gradient-to-br from-gray-850 to-gray-900 p-8 rounded-3xl border border-gray-700/60 shadow-2xl relative overflow-hidden">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_50%)]"></div>
+        
+        <div class="relative flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+            <!-- Squadra Casa -->
+            <div class="flex-1 flex flex-col items-center md:items-end">
+                <div class="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center border border-gray-700/50 mb-3 shadow-md">
+                    <span class="text-2xl font-bold text-emerald-400">{{ home_team[:2] | upper }}</span>
+                </div>
+                <h2 class="text-2xl md:text-3xl font-black text-white tracking-wide uppercase">{{ home_team }}</h2>
+                <span class="text-xs text-gray-400 mt-1 uppercase tracking-wider font-semibold">Casa</span>
+            </div>
+
+            <!-- VS -->
+            <div class="shrink-0 flex flex-col items-center">
+                <span class="text-sm font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-1.5 rounded-full tracking-widest shadow-sm">
+                    VS
+                </span>
+            </div>
+
+            <!-- Squadra Trasferta -->
+            <div class="flex-1 flex flex-col items-center md:items-start">
+                <div class="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center border border-gray-700/50 mb-3 shadow-md">
+                    <span class="text-2xl font-bold text-emerald-400">{{ away_team[:2] | upper }}</span>
+                </div>
+                <h2 class="text-2xl md:text-3xl font-black text-white tracking-wide uppercase">{{ away_team }}</h2>
+                <span class="text-xs text-gray-400 mt-1 uppercase tracking-wider font-semibold">Trasferta</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEZIONE TABELLE MODELLI -->
+    <div>
+        <h3 class="text-xl font-extrabold text-white mb-6 flex items-center">
+            <i class="fa-solid fa-brain text-emerald-400 mr-2"></i> Analisi Predittiva Multimodello
+        </h3>
+
+        <!-- Griglia dei 3 Modelli -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {% for mod in modelli %}
+                <div class="bg-gray-800 rounded-2xl border border-gray-700/60 p-6 shadow-xl flex flex-col justify-between hover:border-gray-600/80 transition duration-300">
+                    
+                    <!-- Info Modello -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-bold text-base text-white tracking-tight">{{ mod.nome }}</h4>
+                            <span class="text-xs font-black bg-gray-900 border border-gray-700/50 px-2.5 py-1 rounded-lg text-emerald-400 uppercase tracking-wider">
+                                {{ mod.prediction }}
+                            </span>
+                        </div>
+                        <p class="text-gray-400 text-xs leading-relaxed mb-6">{{ mod.descrizione }}</p>
+                    </div>
+
+                    <!-- Mini Tabella / Grafico Probabilità -->
+                    <div class="space-y-4">
+                        <div class="bg-gray-900/50 rounded-xl p-4 border border-gray-700/30">
+                            <!-- Header Tabella -->
+                            <div class="grid grid-cols-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                                <span>Segno 1</span>
+                                <span>Segno X</span>
+                                <span>Segno 2</span>
+                            </div>
+                            <!-- Valori Tabella -->
+                            <div class="grid grid-cols-3 text-center text-sm font-extrabold text-white">
+                                <span>{{ mod.prob_1 }}%</span>
+                                <span>{{ mod.prob_X }}%</span>
+                                <span>{{ mod.prob_2 }}%</span>
+                            </div>
+                        </div>
+
+                        <!-- Barra visiva progressiva -->
+                        <div class="w-full h-2 rounded-full overflow-hidden flex bg-gray-900">
+                            <div class="bg-emerald-400 h-full" style="width: {{ mod.prob_1 }}%"></div>
+                            <div class="bg-amber-400 h-full" style="width: {{ mod.prob_X }}%"></div>
+                            <div class="bg-blue-400 h-full" style="width: {{ mod.prob_2 }}%"></div>
+                        </div>
+                    </div>
+
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

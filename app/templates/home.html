@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Palinsesto - AI Sport Predictor{% endblock %}
+
+{% block content %}
+
+<!-- Intestazione -->
+<div class="mb-8 bg-gradient-to-r from-gray-800 to-gray-800/40 p-6 rounded-2xl border border-gray-700/50 shadow-xl flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight mb-1">
+            Pronostici della Giornata
+        </h1>
+        <p class="text-gray-400 text-sm md:text-base">
+            Seleziona la stagione e il turno di campionato per vedere le predizioni del nostro algoritmo.
+        </p>
+    </div>
+    <div class="text-4xl text-emerald-400 opacity-75 hidden sm:block">
+        <i class="fa-solid fa-calendar-days"></i>
+    </div>
+</div>
+
+<!-- FILTRI DI SELEZIONE -->
+<div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-md mb-8">
+    <form action="/" method="GET" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+        
+        <!-- Select Anno / Stagione -->
+        <div class="space-y-2">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400">Stagione</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                    <i class="fa-solid fa-history"></i>
+                </span>
+                <!-- Invia il form in automatico al cambio della stagione per aggiornare le giornate -->
+                <select name="anno" onchange="this.form.submit()" class="block w-full pl-10 pr-3 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                    <option value="2026-2027" {% if stagione_corrente == '2026-2027' %}selected{% endif %}>2026 / 2027</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Select Giornata dinamica (gestita da flask) -->
+        <div class="space-y-2">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400">Giornata</label>
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                    <i class="fa-solid fa-list-ol"></i>
+                </span>
+                <select name="giornata" class="block w-full pl-10 pr-3 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                    {% for g in giornate_opzioni %}
+                        <option value="{{ g }}" {% if g == giornata_corrente %}selected{% endif %}>
+                            {% if g.isdigit() %}Giornata {{ g }}{% else %}{{ g }}{% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Pulsante cerca-->
+        <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-gray-950 font-bold py-2.5 px-4 rounded-xl shadow-md shadow-emerald-500/10 transition duration-150 flex items-center justify-center space-x-2 text-sm">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Visualizza Partite</span>
+        </button>
+
+    </form>
+</div>
+
+<!-- TABELLA DELLE PARTITE -->
+<div class="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl overflow-hidden">
+    <div class="p-5 border-b border-gray-700 flex justify-between items-center bg-gray-850">
+        <h3 class="font-bold text-lg text-white flex items-center">
+            <i class="fa-solid fa-pennant text-emerald-400 mr-2"></i> Palinsesto Match & AI Odds
+        </h3>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+            <thead>
+                <tr class="bg-gray-900/50 text-gray-400 text-xs uppercase tracking-wider border-b border-gray-700">
+                    <th class="py-4 px-6">Match / Squadre</th>
+                    <th class="py-4 px-4 text-center w-28">Predizione</th>
+                    <th class="py-4 px-4 text-center w-80">Probabilità (1 - X - 2)</th>
+                    <th class="py-4 px-4 text-center w-24">Dettagli</th> 
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700/60 text-sm">
+                {% if partite %}
+                    {% for match in partite %}
+                        <tr class="hover:bg-gray-750/40 transition duration-150">
+                            
+                            <!-- SQUADRE-->
+                            <td class="py-4 px-6">
+                                <div class="flex items-center space-x-4 font-semibold text-base tracking-wide text-white">
+                                    <!-- Squadra Casa -->
+                                    <span class="flex-1 text-right truncate">{{ match.home_team }}</span>
+                                    
+                                    <!-- Separatore-->
+                                    <span class="text-xs font-bold bg-gray-900 px-2.5 py-1 rounded-md text-gray-400 border border-gray-700/60 shadow-inner shrink-0">
+                                        VS
+                                    </span>
+                                    
+                                    <!-- Squadra Trasferta -->
+                                    <span class="flex-1 text-left truncate">{{ match.away_team }}</span>
+                                </div>
+                            </td>
+
+                            <!-- PREDIZIONE IA -->
+                            <td class="py-4 px-4 text-center">
+                                <span class="inline-block font-black px-3 py-1 rounded-xl text-xs uppercase tracking-wider shadow-sm border
+                                    {% if match.prediction == '1' %}
+                                        bg-emerald-500/20 text-emerald-400 border-emerald-500/30
+                                    {% elif match.prediction == 'X' %}
+                                        bg-amber-500/20 text-amber-400 border-amber-500/30
+                                    {% elif match.prediction == '2' %}
+                                        bg-blue-500/20 text-blue-400 border-blue-500/30
+                                    {% else %}
+                                        bg-gray-500/20 text-gray-400 border-gray-500/30
+                                    {% endif %}">
+                                    {{ match.prediction }}
+                                </span>
+                            </td>
+
+                            <!-- PROBABILITÀ GRAFICHE -->
+                            <td class="py-4 px-4">
+                                <div class="max-w-xs mx-auto space-y-1.5">
+                                    <div class="flex justify-between text-xs font-semibold text-gray-400 px-1">
+                                        <span>1: {{ match.prob_1 }}%</span>
+                                        <span>X: {{ match.prob_X }}%</span>
+                                        <span>2: {{ match.prob_2 }}%</span>
+                                    </div>
+                                    <div class="w-full h-2 rounded-full overflow-hidden flex bg-gray-900">
+                                        <div class="bg-emerald-400 h-full transition-all" style="width: {{ match.prob_1 }}%"></div>
+                                        <div class="bg-amber-400 h-full transition-all" style="width: {{ match.prob_X }}%"></div>
+                                        <div class="bg-blue-400 h-full transition-all" style="width: {{ match.prob_2 }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            
+
+                            <!--IL PULSANTE DI DETTAGLIO -->
+                            <td class="py-4 px-4 text-center">
+                            <!-- Questo link prende l'ID del match corrente e crea l'URL per andarci -->
+                                <a href="{{ url_for('match_details', match_id=match.id) }}?home={{ match.home_team }}&away={{ match.away_team }}&date={{ match.date_match}}&day={{match.day}}" class="text-gray-400 hover:text-emerald-400 transition">
+                                    <i class="fa-solid fa-chart-simple"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="3" class="py-12 px-6 text-center text-gray-500 italic">
+                            <div class="flex flex-col items-center justify-center space-y-2">
+                                <i class="fa-regular fa-folder-open text-3xl opacity-40"></i>
+                                <span>Nessun match trovato per la stagione {{ stagione_corrente }} o devi ancora premere "Visualizza Partite".</span>
+                            </div>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
