@@ -30,5 +30,13 @@ pip install -r requirements.txt
 python -m app
 ```
 
-
 L'applicazione verrà esposta al seguente indirizzo `localhost:5000`.
+
+## Docker
+Per lanciare l'applicazione in Docker è necessario effettuare una build dell'immagine e successivamente lanciarla, con 
+i seguenti comandi:
+
+```bash
+docker build -t sports-outcome-player .
+docker run --rm -p 8000:8000 sports-outcome-player
+```
