@@ -139,7 +139,7 @@
                             <!--IL PULSANTE DI DETTAGLIO -->
                             <td class="py-4 px-4 text-center">
                             <!-- Questo link prende l'ID del match corrente e crea l'URL per andarci -->
-                                <a href="{{ url_for('match_details', match_id=match.id) }}?home={{ match.home_team }}&away={{ match.away_team }}" class="text-gray-400 hover:text-emerald-400 transition">
+                                <a href="{{ url_for('match_details', match_id=match.id) }}?home={{ match.home_team }}&away={{ match.away_team }}&date={{ match.date_match}}&day={{match.day}}" class="text-gray-400 hover:text-emerald-400 transition">
                                     <i class="fa-solid fa-chart-simple"></i>
                                 </a>
                             </td>

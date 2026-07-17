@@ -14,16 +14,17 @@ from app.models.Team import Team
 class HomeView(MethodView):
 
     __dataset_editor: MatchesDatasetEditor
+    __predictor: ModelPredictor
 
     def __init__(self):
         super().__init__()
         
         # Caricamento del modello Random Forest
         try:
-            self.predictor = ModelPredictor("app/static/models/random_forest_model.joblib")
+            self.__predictor = ModelPredictor("app/static/models/random_forest_model.joblib")
         except Exception as e:
             print(f"Errore nel caricamento del modello Random Forest: {e}")
-            self.predictor = None
+            self.__predictor = None
 
         # Caricamento del Dataset Editor
         try:
@@ -46,7 +47,6 @@ class HomeView(MethodView):
         # Correzione arrotondamento 
         differenza = 100 - (p1 + px + p2)
         p1 += differenza 
-
 
         # Se la probabilità del pareggio (px) è >= 29%, predice "X"
         if px >= 29:
@@ -71,7 +71,6 @@ class HomeView(MethodView):
         # Estraggo i dati di mio interesse
         return self.__dataset_editor.extract_from_dataset(match_day, home_team, away_team)
         
-
 
     def get(self):
         stagione_stringa = request.args.get('anno', '2025-2026')
@@ -102,7 +101,7 @@ class HomeView(MethodView):
                 squadra_trasferta = match.awayTeam.name
                 id_match = getattr(match, 'id', None)
 
-                if self.predictor is not None and self.__dataset_editor is not None:
+                if self.__predictor is not None and self.__dataset_editor is not None:
                     try:
 
                         # Popolamento del dataset con i dati delle partite d'interesse
@@ -114,7 +113,7 @@ class HomeView(MethodView):
                         features = [match_features["HomeValue"] - match_features["AwayValue"], match_features["Z_Home_Wins_Season"] - match_features["Z_Away_Wins_Season"], abs(match_features["HomeValue"] - match_features["AwayValue"]), match_features["HomeAdvantage"]]
 
                         # Predizione tramite Random Forest
-                        probabilities = self.predictor.predict([features])
+                        probabilities = self.__predictor.predict([features])
                         prediction, p1, px, p2 = self._calcola_segno_e_probabilita(probabilities)
 
                     except Exception as e:
@@ -127,6 +126,8 @@ class HomeView(MethodView):
                     "id": id_match or f"{squadra_casa}-{squadra_trasferta}",
                     "home_team": squadra_casa,
                     "away_team": squadra_trasferta,
+                    "date_match": data_match,
+                    "day": day_int,
                     "prediction": prediction,
                     "prob_1": p1,
                     "prob_X": px,
