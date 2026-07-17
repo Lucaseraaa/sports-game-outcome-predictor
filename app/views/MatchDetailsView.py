@@ -1,14 +1,13 @@
 from flask.views import MethodView
-from flask import render_template
+from flask import render_template, request
 
 class MatchDetailsView(MethodView):
 
     def get(self, match_id):
 
         
-        # Dati temporanei del match per lo sviluppo della pagina
-        home_team = "Milan"
-        away_team = "Juventus"
+        home_team = request.args.get('home', 'Squadra Casa')
+        away_team = request.args.get('away', 'Squadra Trasferta')
 
         # Dati strutturati per i tuoi 3 modelli di Machine Learning
         modelli_data = [

@@ -105,7 +105,16 @@
 
                             <!-- PREDIZIONE IA -->
                             <td class="py-4 px-4 text-center">
-                                <span class="inline-block bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-3 py-1 rounded-xl text-xs uppercase tracking-wider shadow-sm">
+                                <span class="inline-block font-black px-3 py-1 rounded-xl text-xs uppercase tracking-wider shadow-sm border
+                                    {% if match.prediction == '1' %}
+                                        bg-emerald-500/20 text-emerald-400 border-emerald-500/30
+                                    {% elif match.prediction == 'X' %}
+                                        bg-amber-500/20 text-amber-400 border-amber-500/30
+                                    {% elif match.prediction == '2' %}
+                                        bg-blue-500/20 text-blue-400 border-blue-500/30
+                                    {% else %}
+                                        bg-gray-500/20 text-gray-400 border-gray-500/30
+                                    {% endif %}">
                                     {{ match.prediction }}
                                 </span>
                             </td>
@@ -130,11 +139,8 @@
                             <!--IL PULSANTE DI DETTAGLIO -->
                             <td class="py-4 px-4 text-center">
                             <!-- Questo link prende l'ID del match corrente e crea l'URL per andarci -->
-                                <a href="{{ url_for('match_detail', match_id=match.id) }}" 
-                                   class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-900 hover:bg-emerald-500 hover:text-gray-950 text-gray-400 border border-gray-700/50 hover:border-emerald-500 transition duration-150 shadow-inner"
-                                   title="Vedi Analisi IA">
-                                <!-- Icona del grafico -->
-                                <i class="fa-solid fa-chart-simple text-sm"></i>
+                                <a href="{{ url_for('match_details', match_id=match.id) }}?home={{ match.home_team }}&away={{ match.away_team }}" class="text-gray-400 hover:text-emerald-400 transition">
+                                    <i class="fa-solid fa-chart-simple"></i>
                                 </a>
                             </td>
                         </tr>
