@@ -1,10 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
-
 from flask.views import MethodView
 from flask import render_template, request
 import numpy as np
-
+import pandas as pd
 from app.api.SoccerDataApi import SoccerDataApi
 from app.api.ModelPredictor import ModelPredictor  
 from app.api.MatchesDatasetEditor import MatchesDatasetEditor  
@@ -12,7 +11,6 @@ from app.models.Statistics import Statistics
 from app.models.Team import Team
 
 class HomeView(MethodView):
-
     __dataset_editor: MatchesDatasetEditor
     __predictor: ModelPredictor
 
@@ -25,7 +23,6 @@ class HomeView(MethodView):
         except Exception as e:
             print(f"Errore nel caricamento del modello Random Forest: {e}")
             self.__predictor = None
-
         # Caricamento del Dataset Editor
         try:
             self.__dataset_editor = MatchesDatasetEditor("app/static/result.csv")
@@ -47,7 +44,6 @@ class HomeView(MethodView):
         # Correzione arrotondamento 
         differenza = 100 - (p1 + px + p2)
         p1 += differenza 
-
         # Se la probabilità del pareggio (px) è >= 29%, predice "X"
         if px >= 29:
             prediction = "X"
@@ -60,34 +56,158 @@ class HomeView(MethodView):
                 
         return prediction, p1, px, p2
 
-    def __extract_match_features(self, home_team: str, away_team: str, match_day: str, day: int):
+    def __extract_match_features(self, home_team: str, away_team: str, match_day: str, day: int, api_client: SoccerDataApi):
         """
-        Metodo utilizzato per poplare ed estrarre i dati dal dataframe
+        Metodo utilizzato per poplare ed estrarre i dati dal dataframe.
+        Logica migliorata:
+        - Se non esiste: aggiungi con valori default (Value=0)
+        - Se esiste ma valori mancanti (soprattutto risultati o Values): aggiorna tramite API
         """
+        match_date = datetime.strptime(match_day, "%Y-%m-%d")
+        today = datetime.now().date()
+        match_date_only = match_date.date()
 
+        # Verifica esistenza
         if not self.__dataset_editor.is_in_dataset(match_day, home_team, away_team):
+            # Aggiungi record base con Value=0
             self.__dataset_editor.add_match_in_dataset(day, home_team, away_team, match_day)
-            
-        # Estraggo i dati di mio interesse
-        return self.__dataset_editor.extract_from_dataset(match_day, home_team, away_team)
+            print(f"Record aggiunto per {home_team} vs {away_team} con Values=0")
+
+        # Estrai record corrente
+        record = self.__dataset_editor.extract_from_dataset(match_day, home_team, away_team)
         
+        needs_update = False
+        update_values = False
+        update_results = False
+
+        # Controlla se servono aggiornamenti
+        if record is not None:
+            # Controlli per Values (aggiorna solo vicino alla data della partita)
+            if (record.get("HomeValue", 0) == 0 or record.get("AwayValue", 0) == 0) and \
+               abs((match_date_only - today).days) <= 1:  # Giorno stesso o giorno prima
+                update_values = True
+                needs_update = True
+            
+            # Controlli per risultati finali (se partita passata)
+            if match_date_only < today and (pd.isna(record.get("FTHG")) or pd.isna(record.get("FTAG")) or record.get("FTR") in [None, '', ' ']):
+                update_results = True
+                needs_update = True
+
+        if needs_update:
+            # Cerca match_id tramite API (necessario per get_match_detail e get_match_teams_value)
+            match_id = self.__find_match_id(api_client, home_team, away_team, match_day)
+            if match_id:
+                if update_values:
+                    try:
+                        player_stats = api_client.get_match_teams_value(match_id)
+                        self.__dataset_editor.update_match_values(
+                            match_day, home_team, away_team,
+                            player_stats.homePlayersValue,
+                            player_stats.awayPlayersValue
+                        )
+                        print(f"Values aggiornati per {home_team} vs {away_team}")
+                    except Exception as e:
+                        print(f"Errore update Values: {e}")
+
+                if update_results:
+                    try:
+                        stats = api_client.get_match_detail(match_id)
+                        self.__dataset_editor.update_match_results(
+                            match_day, home_team, away_team,
+                            stats.homeGoal, stats.awayGoal, stats.fullTimeResult
+                        )
+                        print(f"Risultati aggiornati per {home_team} vs {away_team}")
+                    except Exception as e:
+                        print(f"Errore update risultati: {e}")
+
+        # Ritorna record aggiornato
+        return self.__dataset_editor.extract_from_dataset(match_day, home_team, away_team)
+
+    def __find_match_id(self, api_client: SoccerDataApi, home_team: str, away_team: str, match_date: str) -> int | None:
+        """Helper per trovare l'ID di un match tramite API (da implementare in SoccerDataApi se non esiste)"""
+        try:
+            # Per semplicità, chiama get_matches e cerca per data/squadre
+            season = int(match_date[:4])
+            day = 1  # Placeholder - ottimizza se possibile
+            matches = api_client.get_matches(season=season, day=day)
+            if matches and hasattr(matches, 'data'):
+                for m in matches.data:
+                    if (m.homeTeam.name == home_team or m.awayTeam.name == away_team) and \
+                       m.date.startswith(match_date):
+                        return getattr(m, 'id', None)
+            return None
+        except Exception as e:
+            print(f"Errore ricerca match_id: {e}")
+            return None
+
+    def _get_max_giornata_disponibile(self, season_int: int, api_client: SoccerDataApi) -> int:
+        """
+        Calcola la massima giornata selezionabile:
+        - Non permette di andare oltre la giornata corrente.
+        - Permette la prossima giornata solo se tutte le partite della giornata attuale sono concluse.
+        """
+        today = datetime.now().date()
+        
+        try:
+            # Proviamo a capire quante giornate sono già passate
+            # Strategia: prendi le partite della stagione e trova la giornata più avanzata con risultati
+            max_day = 1
+            
+            for day in range(1, 39):  # massimo 38 giornate
+                try:
+                    matches = api_client.get_matches(season=season_int, day=day)
+                    if not matches or not hasattr(matches, 'data') or len(matches.data) == 0:
+                        break
+                    
+                    all_finished = True
+                    for match in matches.data:
+                        match_date = datetime.strptime(match.date, "%Y-%m-%dT%H:%M:%S.%fZ").date()
+                        # Se la partita è futura o non ha ancora risultato
+                        if match_date > today:
+                            all_finished = False
+                            break
+                    
+                    if all_finished:
+                        max_day = day
+                    else:
+                        # Se questa giornata non è finita, la prossima non è selezionabile
+                        break
+                except Exception:
+                    break  # API non ha più dati per giornate successive
+            
+            # In ogni caso, non andare oltre la giornata corrente + 1 solo se quella corrente è completata
+            return min(max_day + 1 if all_finished else max_day, 38)
+            
+        except Exception as e:
+            print(f"Errore nel calcolo giornata massima: {e}")
+            # Fallback: permetti fino alla giornata 1 se tutto fallisce
+            return 1
 
     def get(self):
         stagione_stringa = request.args.get('anno', '2025-2026')
         giornata_stringa = request.args.get('giornata', '1')
         
-        giornate_disponibili = [str(i) for i in range(1, 39)]
-
         season_int = int(stagione_stringa.split('-')[0])
-        day_int = int(giornata_stringa)
-
+        requested_day = int(giornata_stringa)
+        
         api_client = SoccerDataApi()
+        
+        # Calcola la massima giornata disponibile
+        max_giornata = self._get_max_giornata_disponibile(season_int, api_client)
+        
+        # Se l'utente prova a selezionare una giornata oltre il consentito, forziamo al massimo
+        if requested_day > max_giornata:
+            giornata_stringa = str(max_giornata)
+            requested_day = max_giornata
+            print(f"Giornata {requested_day} non ancora disponibile. Forzata a {max_giornata}")
+
+        giornate_disponibili = [str(i) for i in range(1, max_giornata + 1)]
+        
+        day_int = requested_day
         
         try:
             matches_pydantic = api_client.get_matches(season=season_int, day=day_int)
-            print("Match ottenuti: ", matches_pydantic)
         except Exception as e:
-            
             print(f"Errore durante il recupero dei match dall'API: {e}")
             matches_pydantic = None
 
@@ -95,27 +215,28 @@ class HomeView(MethodView):
         
         if matches_pydantic and hasattr(matches_pydantic, 'data'):
             for match in matches_pydantic.data:
-    
-                # Definisco i dati delle partite
                 squadra_casa = match.homeTeam.name    
                 squadra_trasferta = match.awayTeam.name
                 id_match = getattr(match, 'id', None)
-
+                
                 if self.__predictor is not None and self.__dataset_editor is not None:
                     try:
-
-                        # Popolamento del dataset con i dati delle partite d'interesse
                         data_oggetto = datetime.strptime(match.date, "%Y-%m-%dT%H:%M:%S.%fZ")
                         data_match = data_oggetto.strftime("%Y-%m-%d")
-                        match_features = self.__extract_match_features(squadra_casa, squadra_trasferta, data_match, day_int)
                         
-                        # Recupero le features di mio interesse per il random forest
-                        features = [match_features["HomeValue"] - match_features["AwayValue"], match_features["Z_Home_Wins_Season"] - match_features["Z_Away_Wins_Season"], abs(match_features["HomeValue"] - match_features["AwayValue"]), match_features["HomeAdvantage"]]
-
-                        # Predizione tramite Random Forest
+                        match_features = self.__extract_match_features(
+                            squadra_casa, squadra_trasferta, data_match, day_int, api_client
+                        )
+                        
+                        features = [
+                            match_features["HomeValue"] - match_features["AwayValue"],
+                            match_features["Z_Home_Wins_Season"] - match_features["Z_Away_Wins_Season"],
+                            abs(match_features["HomeValue"] - match_features["AwayValue"]),
+                            match_features["HomeAdvantage"]
+                        ]
+                        
                         probabilities = self.__predictor.predict([features])
                         prediction, p1, px, p2 = self._calcola_segno_e_probabilita(probabilities)
-
                     except Exception as e:
                         print(f"Errore durante la predizione di {squadra_casa} vs {squadra_trasferta}: {e}")
                         prediction, p1, px, p2 = "Errore", 33, 34, 33
@@ -139,5 +260,6 @@ class HomeView(MethodView):
             stagione_corrente=stagione_stringa,
             giornata_corrente=giornata_stringa,
             giornate_opzioni=giornate_disponibili,
+            max_giornata=max_giornata,   # <-- Utile per il template
             partite=partite_estratte
         )
