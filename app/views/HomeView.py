@@ -1,3 +1,6 @@
+from datetime import datetime
+import time
+
 from flask.views import MethodView
 from flask import render_template, request
 import numpy as np
@@ -9,6 +12,8 @@ from app.models.Statistics import Statistics
 from app.models.Team import Team
 
 class HomeView(MethodView):
+
+    __dataset_editor: MatchesDatasetEditor
 
     def __init__(self):
         super().__init__()
@@ -22,58 +27,10 @@ class HomeView(MethodView):
 
         # Caricamento del Dataset Editor
         try:
-            self.dataset_editor = MatchesDatasetEditor("app/static/result.csv")
+            self.__dataset_editor = MatchesDatasetEditor("app/static/result.csv")
         except Exception as e:
             print(f"Errore nel caricamento del MatchesDatasetEditor: {e}")
-            self.dataset_editor = None
-
-    def _estrai_4_features(self, match, match_id: int, day_int: int, api_client: SoccerDataApi) -> list:
-        """
-            Usa direttamente generate_prediction_features di MatchesDatasetEditor
-            per calcolare le feature, estraendo poi solo quelle necessarie al Random Forest
-        """
-        squadra_casa = match.homeTeam.name
-        squadra_trasferta = match.awayTeam.name
-        
-        # Gestione e pulizia della data del match
-        data_match = getattr(match, 'date', '2026-01-01') 
-        if "T" in data_match:
-            data_match = data_match.split("T")[0]
-
-        # Recupero del valore economico dei titolari tramite la tua SoccerDataApi
-        try:
-            player_stats = api_client.get_match_teams_value(match_id)
-            valore_casa = player_stats.homePlayersValue
-            valore_trasferta = player_stats.awayPlayersValue
-        except Exception as e:
-            print(f"Errore recupero valori di mercato per match {match_id}: {e}")
-            valore_casa, valore_trasferta = 150_000_000, 150_000_000 
-
-        # Calcolo di Value e Abs_Value_Difference
-        value_diff = valore_casa - valore_trasferta
-        abs_val_diff = abs(value_diff)
-
-        # Creazione dell'oggetto Statistics 
-        stats_match = Statistics(
-            homeTeam=Team(id=int(match.homeTeam.id), name=squadra_casa),
-            awayTeam=Team(id=int(match.awayTeam.id), name=squadra_trasferta),
-            homeGoal=0,       # Valori fittizi necessari solo all'inizializzazione
-            awayGoal=0,
-            fullTimeResult='D',
-            homeShots=0,
-            awayShots=0,
-            matchDate=data_match
-        )
-
-
-        features_calcolate = self.dataset_editor.generate_prediction_features(day_int, stats_match)
-
-        # Calcolo Z_Wins_Season usando i valori restituiti da PredictionFeatures
-        z_wins_season = features_calcolate.homeZWinsSeason - features_calcolate.awayZWinsSeason
-        home_advantage = features_calcolate.homeAdvantage
-
-        # Restituisco le 4 feature richieste da Random Forest
-        return [value_diff, z_wins_season, abs_val_diff, home_advantage]
+            self.__dataset_editor = None
 
     def _calcola_segno_e_probabilita(self, probabilities) -> tuple:
         """
@@ -89,7 +46,7 @@ class HomeView(MethodView):
         # Correzione arrotondamento 
         differenza = 100 - (p1 + px + p2)
         p1 += differenza 
-        
+
 
         # Se la probabilità del pareggio (px) è >= 29%, predice "X"
         if px >= 29:
@@ -103,6 +60,19 @@ class HomeView(MethodView):
                 
         return prediction, p1, px, p2
 
+    def __extract_match_features(self, home_team: str, away_team: str, match_day: str, day: int):
+        """
+        Metodo utilizzato per poplare ed estrarre i dati dal dataframe
+        """
+
+        if not self.__dataset_editor.is_in_dataset(match_day, home_team, away_team):
+            self.__dataset_editor.add_match_in_dataset(day, home_team, away_team, match_day)
+            
+        # Estraggo i dati di mio interesse
+        return self.__dataset_editor.extract_from_dataset(match_day, home_team, away_team)
+        
+
+
     def get(self):
         stagione_stringa = request.args.get('anno', '2025-2026')
         giornata_stringa = request.args.get('giornata', '1')
@@ -113,10 +83,12 @@ class HomeView(MethodView):
         day_int = int(giornata_stringa)
 
         api_client = SoccerDataApi()
-
+        
         try:
             matches_pydantic = api_client.get_matches(season=season_int, day=day_int)
+            print("Match ottenuti: ", matches_pydantic)
         except Exception as e:
+            
             print(f"Errore durante il recupero dei match dall'API: {e}")
             matches_pydantic = None
 
@@ -124,19 +96,27 @@ class HomeView(MethodView):
         
         if matches_pydantic and hasattr(matches_pydantic, 'data'):
             for match in matches_pydantic.data:
-
+    
+                # Definisco i dati delle partite
                 squadra_casa = match.homeTeam.name    
                 squadra_trasferta = match.awayTeam.name
                 id_match = getattr(match, 'id', None)
 
-                if self.predictor is not None and id_match is not None and self.dataset_editor is not None:
+                if self.predictor is not None and self.__dataset_editor is not None:
                     try:
-                        # Estrazione pulita usando generate_prediction_features
-                        features = self._estrai_4_features(match, int(id_match), day_int, api_client)
+
+                        # Popolamento del dataset con i dati delle partite d'interesse
+                        data_oggetto = datetime.strptime(match.date, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        data_match = data_oggetto.strftime("%Y-%m-%d")
+                        match_features = self.__extract_match_features(squadra_casa, squadra_trasferta, data_match, day_int)
                         
+                        # Recupero le features di mio interesse per il random forest
+                        features = [match_features["HomeValue"] - match_features["AwayValue"], match_features["Z_Home_Wins_Season"] - match_features["Z_Away_Wins_Season"], abs(match_features["HomeValue"] - match_features["AwayValue"]), match_features["HomeAdvantage"]]
+
                         # Predizione tramite Random Forest
                         probabilities = self.predictor.predict([features])
                         prediction, p1, px, p2 = self._calcola_segno_e_probabilita(probabilities)
+
                     except Exception as e:
                         print(f"Errore durante la predizione di {squadra_casa} vs {squadra_trasferta}: {e}")
                         prediction, p1, px, p2 = "Errore", 33, 34, 33

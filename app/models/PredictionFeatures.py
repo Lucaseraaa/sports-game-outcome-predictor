@@ -27,4 +27,8 @@ class PredictionFeatures(BaseModel):
     # ELO
     eloHome: float
     eloAway: float
+
+    # Punteggio
+    pointsHome: int
+    pointsAway: int
     

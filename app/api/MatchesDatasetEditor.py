@@ -6,6 +6,7 @@ from app.models.PredictionFeatures import PredictionFeatures
 class MatchesDatasetEditor:
 
     __dataset: pd.DataFrame
+    __dataset_path: str
 
     def __init__(
         self,
@@ -17,7 +18,22 @@ class MatchesDatasetEditor:
 
         self.__dataset = raw_dataset.set_index(["Date", "HomeTeam", "AwayTeam"])
         self.__dataset = self.__dataset.sort_index()
+        self.__dataset_path = dataset_path
     
+    def extract_from_dataset(self, date: str, home_team: str, away_team: str):
+        """
+        Metodo che permette di estrarre un record dal dataframe (se esiste)
+        """
+
+        if not self.is_in_dataset(date, home_team, away_team):
+            return None
+        
+        try:
+            return self.__dataset.loc[(date, home_team, away_team)]
+        except KeyError:
+            # Nel caso in cui per qualche motivo la riga non venisse trovata
+            return None
+
     def is_in_dataset(self, date: str, home_team: str, away_team: str) -> bool:
         """
         Metodo che permette di verificare se un record (data + squadra casa + squadra trasferta) è già presente nel dataset
@@ -135,7 +151,6 @@ class MatchesDatasetEditor:
             return 0.0
 
         return total_goals / total_shots_on_target
-
 
     def __get_point_to_match_ratio(self, team: str, match_date: str, day: int) -> float:
         """
@@ -405,7 +420,59 @@ class MatchesDatasetEditor:
         # Ritorna l'Elo calcolato per la squadra richiesta, o 1500.0 se la squadra è debuttante
         return current_elo.get(team, initial_elo)
 
-    def generate_prediction_features(self, day: int, statistics: Statistics) -> PredictionFeatures:
+    def __get_points(self, team: str, match_date: str, day: int) -> int:
+        """
+        Metodo utilizzato per calcolare i punti in classifica della squadra 
+        nel campionato in corso, prima della disputa della partita indicata.
+        Regola: +3 punti per vittoria, +1 punto per pareggio, 0 punti per sconfitta.
+
+        Args:
+            team: team di riferimento
+            match_date: data della partita in formato YYYY-MM-DD
+            day: giornata corrente di campionato
+
+        Returns:
+            Punti totali in classifica (int) accumulati prima della partita.
+            Ritorna 0 in caso di prima giornata o se non ci sono partite precedenti.
+        """
+        # Caso limite: prima giornata
+        if day == 1:
+            return 0
+
+        # Inizio della stagione
+        year = int(match_date[:4])
+        month = int(match_date[5:7])
+
+        season_start_year = year if month > 7 else year - 1
+        season_start = f"{season_start_year}-08-01"
+
+        df = self.__dataset.reset_index()
+
+        is_playing = (df["HomeTeam"] == team) | (df["AwayTeam"] == team)
+        is_current_season_past = (df["Date"] >= season_start) & (df["Date"] < match_date)
+
+        past_matches = df[is_playing & is_current_season_past]
+
+        if past_matches.empty:
+            return 0
+
+        points = 0
+
+        for _, match in past_matches.iterrows():
+            if match["HomeTeam"] == team:
+                if match["FTR"] == "H":
+                    points += 3
+                elif match["FTR"] == "D":
+                    points += 1
+            else:
+                if match["FTR"] == "A":
+                    points += 3
+                elif match["FTR"] == "D":
+                    points += 1
+
+        return points
+
+    def generate_prediction_features(self, day: int, home_team: str, away_team: str, match_date: str) -> PredictionFeatures:
         """
         Metodo utilizzato per generare le feature necessarie per la predizione 
         Args:
@@ -417,20 +484,82 @@ class MatchesDatasetEditor:
         """
 
         return PredictionFeatures(
-            homeWinStreak=self.__get_winstreak(statistics.homeTeam.name, statistics.matchDate, day),
-            awayWinStreak=self.__get_winstreak(statistics.awayTeam.name, statistics.matchDate, day),
-            homeGoalOnShotRatio=self.__get_goal_on_shot_ratio(statistics.homeTeam.name, statistics.matchDate, day),
-            awayGoalOnShotRatio=self.__get_goal_on_shot_ratio(statistics.awayTeam.name, statistics.matchDate, day),
-            homePointToMatchRatio=self.__get_point_to_match_ratio(statistics.homeTeam.name, statistics.matchDate, day),
-            awayPointToMatchRatio=self.__get_point_to_match_ratio(statistics.awayTeam.name, statistics.matchDate, day),
-            homeAdvantage=self.__get_home_advantage(statistics.homeTeam.name, statistics.matchDate, day),
-            homeZGoalsSeason=self.__get_z_goals(statistics.homeTeam.name, statistics.matchDate, day),
-            awayZGoalsSeason=self.__get_z_goals(statistics.awayTeam.name, statistics.matchDate, day),
-            homeZWinsSeason=self.__get_z_wins(statistics.homeTeam.name, statistics.matchDate, day),
-            awayZWinsSeason=self.__get_z_wins(statistics.awayTeam.name, statistics.matchDate, day),
-            eloHome=self.__get_elo(statistics.homeTeam.name, statistics.matchDate, day),
-            eloAway=self.__get_elo(statistics.awayTeam.name, statistics.matchDate, day),
+            homeWinStreak=self.__get_winstreak(home_team, match_date, day),
+            awayWinStreak=self.__get_winstreak(away_team, match_date, day),
+            homeGoalOnShotRatio=self.__get_goal_on_shot_ratio(home_team, match_date, day),
+            awayGoalOnShotRatio=self.__get_goal_on_shot_ratio(away_team, match_date, day),
+            homePointToMatchRatio=self.__get_point_to_match_ratio(home_team, match_date, day),
+            awayPointToMatchRatio=self.__get_point_to_match_ratio(away_team, match_date, day),
+            homeAdvantage=self.__get_home_advantage(home_team, match_date, day),
+            homeZGoalsSeason=self.__get_z_goals(home_team, match_date, day),
+            awayZGoalsSeason=self.__get_z_goals(away_team, match_date, day),
+            homeZWinsSeason=self.__get_z_wins(home_team, match_date, day),
+            awayZWinsSeason=self.__get_z_wins(away_team, match_date, day),
+            eloHome=self.__get_elo(home_team, match_date, day),
+            eloAway=self.__get_elo(away_team, match_date, day),
+            pointsHome=self.__get_points(home_team, match_date, day),            
+            pointsAway=self.__get_points(away_team, match_date, day),            
         )
+
+    def add_match_in_dataset(self, day: int, home_team: str, away_team: str, match_date: str):
+        """
+        Metodo che permette di inserire un record di dati (a partita non ancora conclusa) nel dataset
+        """
+
+        if self.is_in_dataset(match_date, home_team, away_team):
+            return False
+        
+        baseline = [match_date, home_team, away_team, 0, 0, '']
+
+        sep_date = match_date.split('-')
+        year, month = int(sep_date[0]), int(sep_date[1])
+        start_year = year if month > 7 else year - 1
+        baseline.append(f"{start_year}-{start_year+1}")
+
+        features = self.generate_prediction_features(day, home_team, away_team, match_date)
+
+        baseline += [
+            features.homeWinStreak,
+            features.awayWinStreak,
+            features.homeZGoalsSeason,
+            features.awayZGoalsSeason,
+            features.homeZWinsSeason,
+            features.awayZWinsSeason,
+            features.homeGoalOnShotRatio,
+            features.awayGoalOnShotRatio,
+            features.homeAdvantage,
+            features.eloHome,
+            features.eloAway,
+            features.pointsHome,
+            features.pointsAway,
+            0,
+            0,
+            features.homePointToMatchRatio,
+            features.awayPointToMatchRatio,
+        ]
+
+        # Separo la chiave dell'indice (date, home_team, away_team) dai valori delle colonne
+        index_key = tuple(baseline[:3])
+        row_values = baseline[3:]
+
+        # Creo un DataFrame di una sola riga con lo stesso indice/colonne del dataset
+        new_row = pd.DataFrame(
+            [row_values],
+            columns=self.__dataset.columns,
+            index=pd.MultiIndex.from_tuples([index_key], names=self.__dataset.index.names)
+        )
+
+        # Concateno e riordino
+        self.__dataset = pd.concat([self.__dataset, new_row])
+        self.__dataset = self.__dataset.sort_index()
+
+        try:
+            self.__dataset.to_csv(self.__dataset_path)
+        except Exception as e:
+            print(f"Eccezione: {e}")
+            return False
+
+        return True
 
 
     def add_in_dataset(self, day: int, statistics: Statistics) -> bool:
@@ -446,43 +575,60 @@ class MatchesDatasetEditor:
         """
 
         date, home_team, away_team = statistics.matchDate, statistics.homeTeam.name, statistics.awayTeam.name
+        print(f"Data della partita: {date}")
 
-        # Controllo che il record non esista già
-        #if self.is_in_dataset(date, home_team, away_team):
-        #    return False
+        if self.is_in_dataset(date, home_team, away_team):
+            return False
 
-        # Inserisco il record (con tutti i dati che servono)
         baseline = [date, home_team, away_team, statistics.homeGoal, statistics.awayGoal, statistics.fullTimeResult]
 
-        # Calcolo corretto della season
         sep_date = date.split('-')
         year, month = int(sep_date[0]), int(sep_date[1])
-        
-        # Se siamo tra agosto e dicembre, l'anno di inizio è l'anno corrente.
-        # Se siamo tra gennaio e luglio, l'anno di inizio è l'anno precedente.
         start_year = year if month > 7 else year - 1
-
         baseline.append(f"{start_year}-{start_year+1}")
 
-        # Ottengo le feature di predizione e le unisco
         features = self.generate_prediction_features(day, statistics)
 
         baseline += [
             features.homeWinStreak,
             features.awayWinStreak,
-            features.homeGoalOnShotRatio,
-            features.awayGoalOnShotRatio,
-            features.homePointToMatchRatio,
-            features.awayPointToMatchRatio,
-            features.homeAdvantage,
             features.homeZGoalsSeason,
             features.awayZGoalsSeason,
             features.homeZWinsSeason,
-            features.awayZWinsSeason
+            features.awayZWinsSeason,
+            features.homeGoalOnShotRatio,
+            features.awayGoalOnShotRatio,
+            features.homeAdvantage,
+            features.eloHome,
+            features.eloAway,
+            features.pointsHome,
+            features.pointsAway,
+            0,
+            0,
+            features.homePointToMatchRatio,
+            features.awayPointToMatchRatio,
         ]
 
+        # Separo la chiave dell'indice (date, home_team, away_team) dai valori delle colonne
+        index_key = tuple(baseline[:3])
+        row_values = baseline[3:]
 
-        print(baseline)
-        
-        return True 
+        # Creo un DataFrame di una sola riga con lo stesso indice/colonne del dataset
+        new_row = pd.DataFrame(
+            [row_values],
+            columns=self.__dataset.columns,
+            index=pd.MultiIndex.from_tuples([index_key], names=self.__dataset.index.names)
+        )
+
+        # Concateno e riordino
+        self.__dataset = pd.concat([self.__dataset, new_row])
+        self.__dataset = self.__dataset.sort_index()
+
+        try:
+            self.__dataset.to_csv(self.__dataset_path)
+        except Exception as e:
+            print(f"Eccezione: {e}")
+            return False
+
+        return True
         

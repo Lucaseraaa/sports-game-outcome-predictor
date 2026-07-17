@@ -101,7 +101,6 @@ class SoccerDataApi:
 
         # Ottengo le statistiche che mi interessano
         json_result = api.get(params={})[0]
-        print(json_result)
         goals = json_result.get("state").get("score").get("current").split(" - ")
         goals_home, goals_away = int(goals[0]), int(goals[1])
         date = datetime.strptime(json_result.get("date"), "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y-%m-%d")
