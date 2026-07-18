@@ -8,8 +8,20 @@ class BetView(MethodView):
 
     def get(self):
 
-        budget_iniziale = float(request.args.get('bankroll', 7600))
-        puntata_fissa = float(request.args.get('stake', 10))
+
+        # Leggiamo i parametri pulendo eventuali virgole inserite dall'utente
+        budget_iniziale = request.args.get('bankroll', '7600').replace(',', '.')
+        puntata_fissa = request.args.get('stake', '10').replace(',', '.')
+
+        try:
+            budget_iniziale = float(budget_iniziale)
+        except ValueError:
+            budget_iniziale = 7600
+            
+        try:
+            puntata_fissa = float(puntata_fissa)
+        except ValueError:
+            puntata_fissa = 10.0
 
 
         odds_manager = Odds(
@@ -17,6 +29,7 @@ class BetView(MethodView):
             match_dataframe_path="app/static/result.csv"
         )
 
+        
         # Calcolo sulle stagioni di test
         risultati_24_25 = odds_manager.backtest("2024-2025", budget_iniziale, puntata_fissa)
         
@@ -31,13 +44,17 @@ class BetView(MethodView):
         flow_logistic = risultati_24_25["flow_logistic"] + risultati_25_26["flow_logistic"][1:]
         flow_xgb = risultati_24_25["flow_xgb"] + risultati_25_26["flow_xgb"][1:]
 
-        # Calcolo metriche globali KPI
+        #Calcolo metriche globali KPI basate sul Random Forest
         totale_scommesse = len(storico_totale_rf)
-        scommesse_vinte = sum(1 for s in storico_totale_rf if s["esito"] == "Vinta")
-        win_rate = (scommesse_vinte / totale_scommesse * 100) if totale_scommesse > 0 else 0
         bilancio_finale = flow_rf[-1] if totale_scommesse > 0 else budget_iniziale
         profitto_totale = bilancio_finale - budget_iniziale
-        roi = (profitto_totale / (puntata_fissa * totale_scommesse) * 100) if totale_scommesse > 0 else 0
+
+        # Volume di gioco totale 
+        volume_gioco = puntata_fissa * totale_scommesse
+        
+        # Moltiplicatore del capitale iniziale 
+        moltiplicatore_capitale = (bilancio_finale / budget_iniziale) if budget_iniziale > 0 else 1.0
+
 
         # Disegno del grafico comparativo
         x_dati = list(range(totale_scommesse + 1))
@@ -60,15 +77,17 @@ class BetView(MethodView):
 
         grafico_html = pio.to_html(fig, full_html=False, include_plotlyjs='cdn')
 
+    
+
         return render_template(
             "bet.html",
             budget_iniziale=budget_iniziale,
             puntata_fissa=puntata_fissa,
             totale_scommesse=totale_scommesse,
-            win_rate=round(win_rate, 1),
             profitto_totale=round(profitto_totale, 2),
             bilancio_finale=round(bilancio_finale, 2),
-            roi=round(roi, 1),
+            volume_gioco=round(volume_gioco, 2),
+            moltiplicatore=round(moltiplicatore_capitale, 2),
             storico=storico_totale_rf,
             grafico_html=grafico_html 
         )

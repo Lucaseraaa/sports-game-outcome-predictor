@@ -1,8 +1,27 @@
 {% extends 'base.html' %}
 
-{% block title %}Simulatore IA - Profit & Loss{% endblock %}
+{% block title %}Bet Simulator{% endblock %}
 
 {% block content %}
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #1f2937; 
+        border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #4b5563; 
+        border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #6b7280; 
+    }
+</style>
+
 
 <!-- Header -->
 <div class="mb-8 bg-gradient-to-r from-gray-800 to-gray-800/40 p-6 rounded-2xl border border-gray-700/50 shadow-xl">
@@ -10,7 +29,7 @@
         <i class="fa-solid fa-calculator text-emerald-400 mr-2"></i> Simulatore di Scommesse Reali
     </h1>
     <p class="text-gray-400 text-sm">
-        Testa l'algoritmo impostando il tuo budget e la tua puntata fissa per vedere il potenziale profitto generato sul Test Set storico.
+        Testa il modello Random Forest impostando il tuo budget e la tua puntata fissa per vedere il potenziale profitto generato sul Test Set storico.
     </p>
 </div>
 
@@ -19,14 +38,14 @@
     <!-- Box di Input Parametri -->
     <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-md">
         <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4">Configura Simulazione</h3>
-        <form action="/simulatore" method="GET" class="space-y-4">
+        <form action="{{ request.path }}" method="GET" class="space-y-4">
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Budget Iniziale (€)</label>
-                <input type="number" name="bankroll" value="{{ budget_iniziale }}" step="50" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <input type="text" name="bankroll" value="{{ budget_iniziale }}" step="50" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
             <div>
                 <label class="block text-xs text-gray-400 mb-1">Puntata per Match (€)</label>
-                <input type="number" name="stake" value="{{ puntata_fissa }}" step="5" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <input type="text" name="stake" value="{{ puntata_fissa }}" step="5" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
             <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-600 text-gray-950 font-bold py-2 px-4 rounded-xl text-sm shadow-md shadow-emerald-500/10 transition">
                 Ricalcola Impatto
@@ -45,25 +64,28 @@
         <span class="text-xs text-gray-500">Capitale finale: {{ bilancio_finale }} €</span>
     </div>
 
-    <!-- KPI 2: ROI% -->
+    <!-- KPI 2: Volume di Gioco Totale-->
     <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-md flex flex-col justify-between">
-        <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Ritorno Investimento (ROI)</span>
+        <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Volume di Gioco Totale</span>
         <div class="my-2">
-            <span class="text-3xl font-black {% if roi >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
-                {{ roi }} %
+            <span class="text-3xl font-black text-amber-400">
+                {{ volume_gioco }} €
             </span>
         </div>
-        <span class="text-xs text-gray-500">Rendimento medio sul capitale movimentato</span>
+        <span class="text-xs text-gray-500">Totale capitale movimentato su {{ totale_scommesse }} match</span>
     </div>
 
-    <!-- KPI 3: Win Rate Algoritmo -->
+    <!-- KPI 3: Performance del Capitale-->
     <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700 shadow-md flex flex-col justify-between">
-        <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Win Rate Modello</span>
+        <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Moltiplicatore Budget</span>
         <div class="my-2">
-            <span class="text-3xl font-black text-blue-400">{{ win_rate }} %</span>
+            <span class="text-3xl font-black {% if moltiplicatore >= 1 %}text-blue-400{% else %}text-red-400{% endif %}">
+                x {{ moltiplicatore }}
+            </span>
         </div>
-        <span class="text-xs text-gray-500">Su un totale di {{ totale_scommesse }} match</span>
+        <span class="text-xs text-gray-500">Rendimento relativo sul budget iniziale di {{ budget_iniziale }} €</span>
     </div>
+
 </div>
 
 <!-- GRAFICO ANDAMENTO PORTAFOGLIO-->
@@ -82,9 +104,9 @@
     <div class="p-5 border-b border-gray-700 bg-gray-850">
         <h3 class="font-bold text-md text-white">Resoconto Dettagliato Scommesse</h3>
     </div>
-    <div class="overflow-x-auto">
+    <div class="max-h-[480px] overflow-y-auto overflow-x-auto custom-scrollbar">
         <table class="w-full text-left border-collapse">
-            <thead>
+            <thead class="sticky top-0 bg-gray-900 z-10">
                 <tr class="bg-gray-900/50 text-gray-400 text-xs uppercase border-b border-gray-700">
                     <th class="py-3 px-6">Match</th>
                     <th class="py-3 px-4 text-center">Pronostico</th>
