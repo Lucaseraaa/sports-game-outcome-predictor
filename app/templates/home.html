@@ -38,7 +38,6 @@
             </div>
         </div>
 
-        <!-- Select Giornata dinamica (gestita da flask) -->
         <div class="space-y-2">
             <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400">Giornata</label>
             <div class="relative">
@@ -47,8 +46,9 @@
                 </span>
                 <select name="giornata" class="block w-full pl-10 pr-3 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                     {% for g in giornate_opzioni %}
-                        <option value="{{ g }}" {% if g == giornata_corrente %}selected{% endif %}>
-                            {% if g.isdigit() %}Giornata {{ g }}{% else %}{{ g }}{% endif %}
+                        <!-- Usa |string per evitare bug di comparazione tra int e str -->
+                        <option value="{{ g }}" {% if g|string == giornata_corrente|string %}selected{% endif %}>
+                            Giornata {{ g }}
                         </option>
                     {% endfor %}
                 </select>

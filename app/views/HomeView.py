@@ -30,7 +30,7 @@ class HomeView(MethodView):
             print(f"Errore nel caricamento del MatchesDatasetEditor: {e}")
             self.__dataset_editor = None
 
-    def _calcola_segno_e_probabilita(self, probabilities) -> tuple:
+    def __get_probs(self, probabilities) -> tuple:
         """
         Prende l'output di predict_proba e restituisce le percentuali e il segno predetto
         basandosi sulle tue specifiche regole di business.
@@ -55,90 +55,6 @@ class HomeView(MethodView):
                 prediction = "2"
                 
         return prediction, p1, px, p2
-
-    def __extract_match_features(self, home_team: str, away_team: str, match_day: str, day: int, api_client: SoccerDataApi):
-        """
-        Metodo utilizzato per poplare ed estrarre i dati dal dataframe.
-        Logica migliorata:
-        - Se non esiste: aggiungi con valori default (Value=0)
-        - Se esiste ma valori mancanti (soprattutto risultati o Values): aggiorna tramite API
-        """
-        match_date = datetime.strptime(match_day, "%Y-%m-%d")
-        today = datetime.now().date()
-        match_date_only = match_date.date()
-
-        # Verifica esistenza
-        if not self.__dataset_editor.is_in_dataset(match_day, home_team, away_team):
-            # Aggiungi record base con Value=0
-            self.__dataset_editor.add_match_in_dataset(day, home_team, away_team, match_day)
-            print(f"Record aggiunto per {home_team} vs {away_team} con Values=0")
-
-        # Estrai record corrente
-        record = self.__dataset_editor.extract_from_dataset(match_day, home_team, away_team)
-        
-        needs_update = False
-        update_values = False
-        update_results = False
-
-        # Controlla se servono aggiornamenti
-        if record is not None:
-            # Controlli per Values (aggiorna solo vicino alla data della partita)
-            if (record.get("HomeValue", 0) == 0 or record.get("AwayValue", 0) == 0) and \
-               abs((match_date_only - today).days) <= 1:  # Giorno stesso o giorno prima
-                update_values = True
-                needs_update = True
-            
-            # Controlli per risultati finali (se partita passata)
-            if match_date_only < today and (pd.isna(record.get("FTHG")) or pd.isna(record.get("FTAG")) or record.get("FTR") in [None, '', ' ']):
-                update_results = True
-                needs_update = True
-
-        if needs_update:
-            # Cerca match_id tramite API (necessario per get_match_detail e get_match_teams_value)
-            match_id = self.__find_match_id(api_client, home_team, away_team, match_day)
-            if match_id:
-                if update_values:
-                    try:
-                        player_stats = api_client.get_match_teams_value(match_id)
-                        self.__dataset_editor.update_match_values(
-                            match_day, home_team, away_team,
-                            player_stats.homePlayersValue,
-                            player_stats.awayPlayersValue
-                        )
-                        print(f"Values aggiornati per {home_team} vs {away_team}")
-                    except Exception as e:
-                        print(f"Errore update Values: {e}")
-
-                if update_results:
-                    try:
-                        stats = api_client.get_match_detail(match_id)
-                        self.__dataset_editor.update_match_results(
-                            match_day, home_team, away_team,
-                            stats.homeGoal, stats.awayGoal, stats.fullTimeResult
-                        )
-                        print(f"Risultati aggiornati per {home_team} vs {away_team}")
-                    except Exception as e:
-                        print(f"Errore update risultati: {e}")
-
-        # Ritorna record aggiornato
-        return self.__dataset_editor.extract_from_dataset(match_day, home_team, away_team)
-
-    def __find_match_id(self, api_client: SoccerDataApi, home_team: str, away_team: str, match_date: str) -> int | None:
-        """Helper per trovare l'ID di un match tramite API (da implementare in SoccerDataApi se non esiste)"""
-        try:
-            # Per semplicità, chiama get_matches e cerca per data/squadre
-            season = int(match_date[:4])
-            day = 1  # Placeholder - ottimizza se possibile
-            matches = api_client.get_matches(season=season, day=day)
-            if matches and hasattr(matches, 'data'):
-                for m in matches.data:
-                    if (m.homeTeam.name == home_team or m.awayTeam.name == away_team) and \
-                       m.date.startswith(match_date):
-                        return getattr(m, 'id', None)
-            return None
-        except Exception as e:
-            print(f"Errore ricerca match_id: {e}")
-            return None
 
     
 
@@ -210,8 +126,6 @@ class HomeView(MethodView):
                         })
 
                 if new_matches_data:
-
-                    print("Passo di qua, salva")
                     
                     # Inserimento delle partite nel dataframe
                     self.__dataset_editor.add_new_matches(new_matches_data)
@@ -226,57 +140,66 @@ class HomeView(MethodView):
 
         print("MTC: ", matches)
 
-        return
-
         partite_estratte = []
         
-        if matches_pydantic and hasattr(matches_pydantic, 'data'):
-            for match in matches_pydantic.data:
-                squadra_casa = match.homeTeam.name    
-                squadra_trasferta = match.awayTeam.name
-                id_match = getattr(match, 'id', None)
-                
-                if self.__predictor is not None and self.__dataset_editor is not None:
-                    try:
-                        data_oggetto = datetime.strptime(match.date, "%Y-%m-%dT%H:%M:%S.%fZ")
-                        data_match = data_oggetto.strftime("%Y-%m-%d")
-                        
-                        match_features = self.__extract_match_features(
-                            squadra_casa, squadra_trasferta, data_match, day_int, api_client
-                        )
-                        
-                        features = [
-                            match_features["HomeValue"] - match_features["AwayValue"],
-                            match_features["Z_Home_Wins_Season"] - match_features["Z_Away_Wins_Season"],
-                            abs(match_features["HomeValue"] - match_features["AwayValue"]),
-                            match_features["HomeAdvantage"]
-                        ]
-                        
-                        probabilities = self.__predictor.predict([features])
-                        prediction, p1, px, p2 = self._calcola_segno_e_probabilita(probabilities)
-                    except Exception as e:
-                        print(f"Errore durante la predizione di {squadra_casa} vs {squadra_trasferta}: {e}")
-                        prediction, p1, px, p2 = "Errore", 33, 34, 33
-                else:
-                    prediction, p1, px, p2 = "N/D", 33, 34, 33
+        for match in matches:
+            # Estraiamo i dati di base dal dizionario del match
+            squadra_casa = match["HomeTeam"]
+            squadra_trasferta = match["AwayTeam"]
+            data_match = match["Date"]
+            
+            # Gestiamo l'ID del match se non è presente nel dizionario del dataset
+            id_match = match.get("id") or f"{squadra_casa}-{squadra_trasferta}"
+            
+            if self.__predictor is not None and self.__dataset_editor is not None:
+                try:
+        
+                    home_value = match.get("HomeValue") or 0.0
+                    away_value = match.get("AwayValue") or 0.0
+                    
+                    z_home_wins = match.get("Z_Home_Wins_Season") or 0.0
+                    z_away_wins = match.get("Z_Away_Wins_Season") or 0.0
+                    
+                    home_advantage = match.get("HomeAdvantage") or 0.0
+                    
+                    # Costruiamo l'array delle feature per il modello
+                    features = [
+                        home_value - away_value,
+                        z_home_wins - z_away_wins,
+                        abs(home_value - away_value),
+                        home_advantage
+                    ]
+                    
+                    # Eseguiamo la predizione
+                    probabilities = self.__predictor.predict([features])
+                    prediction, p1, px, p2 = self.__get_probs(probabilities)
+                    
+                except Exception as e:
+                    print(f"Errore durante la predizione di {squadra_casa} vs {squadra_trasferta}: {e}")
+                    prediction, p1, px, p2 = "Errore", 33, 34, 33
+            else:
+                prediction, p1, px, p2 = "N/D", 33, 34, 33
 
-                partite_estratte.append({
-                    "id": id_match or f"{squadra_casa}-{squadra_trasferta}",
-                    "home_team": squadra_casa,
-                    "away_team": squadra_trasferta,
-                    "date_match": data_match,
-                    "day": day_int,
-                    "prediction": prediction,
-                    "prob_1": p1,
-                    "prob_X": px,
-                    "prob_2": p2
-                })
+            # Aggiungiamo il match elaborato alla lista per il template HTML
+            partite_estratte.append({
+                "id": id_match,
+                "home_team": squadra_casa,
+                "away_team": squadra_trasferta,
+                "date_match": data_match,
+                "day": day_int,
+                "prediction": prediction,
+                "prob_1": p1,
+                "prob_X": px,
+                "prob_2": p2
+            })
+
+        giornate_disponibili = [str(i) for i in range(1, 39)]
 
         return render_template(
             "home.html",
             stagione_corrente=stagione_stringa,
-            giornata_corrente=giornata_stringa,
+            giornata_corrente=str(day_int), 
             giornate_opzioni=giornate_disponibili,
-            max_giornata=max_giornata,   # <-- Utile per il template
+            max_giornata=38,   
             partite=partite_estratte
         )
