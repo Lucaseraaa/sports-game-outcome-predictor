@@ -56,8 +56,49 @@ class HomeView(MethodView):
                 
         return prediction, p1, px, p2
 
-    
+    def __get_available_day(self, stagione_stringa: int) -> list[int]:
+        """
+        Metodo che permette di estrarre le giornate che possono essere visualizzate
 
+        Args:
+            stagione_stringa: stringa che indica la stagione corrente
+
+        Returns: 
+            lista delle giornate disponibili
+        """
+
+        season_int = int(stagione_stringa.split('-')[0])
+        oggi = datetime.now().date()
+        
+        is_current_season = (season_int == oggi.year) or (season_int + 1 == oggi.year)
+        
+        if is_current_season:
+            max_giornata = 1 
+            
+            for d in range(1, 38):
+                
+                matches_d = self.__dataset_editor.get_all_match_of_day(stagione_stringa, d)
+        
+                if not matches_d:
+                    break
+                    
+                # Estraggo la data dell'ultima partita giocata nella giornata 'd'
+                max_date_str = max([m["Date"] for m in matches_d])
+                max_date = datetime.strptime(max_date_str, "%Y-%m-%d").date()
+                
+                if oggi > max_date:
+                    max_giornata = d + 1
+                else:
+                    break 
+            
+            return [str(i) for i in range(1, max_giornata + 1)]
+        else:
+
+            # Se è una stagione passata, le partite sono già tutte giocate: sblocco tutto
+            return [str(i) for i in range(1, 39)]
+
+
+    
     def get(self):
         from datetime import datetime
     
@@ -71,11 +112,13 @@ class HomeView(MethodView):
         
         day_int = requested_day
         
+        giornate_disponibili = self.__get_available_day(stagione_stringa)
+
         # Ricerco le partite della giornata dal dataset 
         matches = self.__dataset_editor.get_all_match_of_day(stagione_stringa, day_int)
 
         if len(matches) != 10:
-            print("ENTRO")
+
             try:
 
                 # Chiamata API per i match
@@ -138,8 +181,6 @@ class HomeView(MethodView):
                 matches_pydantic = None
         
 
-        print("MTC: ", matches)
-
         partite_estratte = []
         
         for match in matches:
@@ -192,8 +233,6 @@ class HomeView(MethodView):
                 "prob_X": px,
                 "prob_2": p2
             })
-
-        giornate_disponibili = [str(i) for i in range(1, 39)]
 
         return render_template(
             "home.html",
