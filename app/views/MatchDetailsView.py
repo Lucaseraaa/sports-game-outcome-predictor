@@ -1,5 +1,6 @@
 from flask.views import MethodView
 from flask import render_template, request
+from app.constants import LINEAR_TRESHOLD, XGBOOST_TRESHOLD, FOREST_TRESHOLD
 
 from app.api.MatchesDatasetEditor import MatchesDatasetEditor
 from app.api.ModelPredictor import ModelPredictor
@@ -51,9 +52,9 @@ class MatchDetailsView(MethodView):
         xgboost_result = xgboost_predictor.predict([xgboost_feature])[0]
         forest_result = forest_predictor.predict([random_forest_feature])[0]
 
-        prediction_linear = 1 if linear_result[1] > 0.27 else np.argmax(linear_result)
-        prediction_xgbooost = 1 if xgboost_result[1] > 0.29 else np.argmax(linear_result)
-        prediction_forest = 1 if forest_result[1] > 0.29 else np.argmax(linear_result)
+        prediction_linear = 1 if linear_result[1] > LINEAR_TRESHOLD else np.argmax(linear_result)
+        prediction_xgbooost = 1 if xgboost_result[1] > XGBOOST_TRESHOLD else np.argmax(linear_result)
+        prediction_forest = 1 if forest_result[1] > FOREST_TRESHOLD else np.argmax(linear_result)
 
         print(np.round(linear_result[1], 2)*100)
         classes = ['1', 'X', '2']

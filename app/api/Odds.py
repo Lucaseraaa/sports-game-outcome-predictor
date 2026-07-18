@@ -1,5 +1,6 @@
 import pandas as pd
 import difflib
+from app.constants import LINEAR_TRESHOLD, XGBOOST_TRESHOLD, FOREST_TRESHOLD
 
 from app.api.ModelPredictor import ModelPredictor
 
@@ -132,9 +133,9 @@ class Odds:
 
         # 3. LOGICA DI SCELTA VETTORIALIZZATA (Sostituisce il tuo if/else con np.where)
         # np.where(condizione, valore_se_vero, valore_se_falso)
-        res_1 = np.where(m1_prev_batch[:, 1] > 0.27, 1, np.argmax(m1_prev_batch, axis=1))
-        res_2 = np.where(m2_prev_batch[:, 1] > 0.29, 1, np.argmax(m2_prev_batch, axis=1))
-        res_3 = np.where(m3_prev_batch[:, 1] > 0.29, 1, np.argmax(m3_prev_batch, axis=1))
+        res_1 = np.where(m1_prev_batch[:, 1] > LINEAR_TRESHOLD, 1, np.argmax(m1_prev_batch, axis=1))
+        res_2 = np.where(m2_prev_batch[:, 1] > FOREST_TRESHOLD, 1, np.argmax(m2_prev_batch, axis=1))
+        res_3 = np.where(m3_prev_batch[:, 1] > XGBOOST_TRESHOLD, 1, np.argmax(m3_prev_batch, axis=1))
 
         # 4. CALCOLO DEI GUADAGNI OTTIMIZZATO
         mapping_risultati = np.array(['H', 'D', 'A'])
