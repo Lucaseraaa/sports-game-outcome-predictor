@@ -131,8 +131,6 @@ class SoccerDataApi:
             matchDate=date
         )
 
-        md = MatchesDatasetEditor("app/static/result.csv")
-        md.add_in_dataset(1, s)
         return s
     
     def get_match_teams_value(self, match_id: int) -> PlayerStatistics:
