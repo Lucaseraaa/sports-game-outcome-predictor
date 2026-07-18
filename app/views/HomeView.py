@@ -21,13 +21,11 @@ class HomeView(MethodView):
         try:
             self.__predictor = ModelPredictor("app/static/models/random_forest_model.joblib")
         except Exception as e:
-            print(f"Errore nel caricamento del modello Random Forest: {e}")
             self.__predictor = None
         # Caricamento del Dataset Editor
         try:
             self.__dataset_editor = MatchesDatasetEditor("app/static/result.csv")
         except Exception as e:
-            print(f"Errore nel caricamento del MatchesDatasetEditor: {e}")
             self.__dataset_editor = None
 
     def __get_probs(self, probabilities) -> tuple:
@@ -121,10 +119,7 @@ class HomeView(MethodView):
 
         # Se non c'è nulla da aggiornare, restituisco l'array originario e interrompo
         if not partite_da_aggiornare:
-            print("NON C'È NULLA")
             return matches
-
-        print(f"Trovate {len(partite_da_aggiornare)} partite senza risultato. Avvio aggiornamento...")
 
         try:
             # Chiamata API generale per mappare le partite ai loro ID
@@ -166,10 +161,10 @@ class HomeView(MethodView):
             # Scrivo i nuovi risultati sul file CSV tramite l'editor
             if updates_for_dataset:
                 self.__dataset_editor.update_match_results(updates_for_dataset)
-                print("Risultati mancanti aggiornati con successo nel CSV.")
 
         except Exception as e:
-            print(f"Errore durante l'aggiornamento dei risultati completati: {e}")
+            
+            print(f"Errore durante l'aggiornamento dei risultati")
 
         return matches
 
@@ -234,7 +229,6 @@ class HomeView(MethodView):
             # Scrivo le modifiche su file
             if updates_for_dataset:
                 self.__dataset_editor.update_match_values(updates_for_dataset)
-                print("Valori delle rose di oggi aggiornati con successo nel CSV.")
 
         except Exception as e:
             print(f"Errore durante l'aggiornamento dei valori delle rose: {e}")
@@ -322,7 +316,6 @@ class HomeView(MethodView):
                     matches = matches + new_matches_data
 
             except Exception as e:
-                print(f"Errore durante il recupero dei match dall'API: {e}")
                 matches_pydantic = None
         
         matches = self.__update_completed_matches(matches, season_int, day_int, api_client)
@@ -362,7 +355,6 @@ class HomeView(MethodView):
                     prediction, p1, px, p2 = self.__get_probs(probabilities)
                     
                 except Exception as e:
-                    print(f"Errore durante la predizione di {squadra_casa} vs {squadra_trasferta}: {e}")
                     prediction, p1, px, p2 = "Errore", 33, 34, 33
             else:
                 prediction, p1, px, p2 = "N/D", 33, 34, 33
