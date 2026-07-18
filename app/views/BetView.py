@@ -43,9 +43,12 @@ class BetView(MethodView):
         x_dati = list(range(totale_scommesse + 1))
         fig = go.Figure()
 
-        fig.add_trace(go.Scatter(x=x_dati, y=flow_rf, mode='lines', line=dict(color='#34d399', width=3.5), name='Random Forest'))
-        fig.add_trace(go.Scatter(x=x_dati, y=flow_logistic, mode='lines', line=dict(color='#fbbf24', width=2, dash='dash'), name='Regr. Logistica'))
-        fig.add_trace(go.Scatter(x=x_dati, y=flow_xgb, mode='lines', line=dict(color='#60a5fa', width=2, dash='dot'), name='XGBoost'))
+        # Random Forest
+        fig.add_trace(go.Scatter(x=x_dati, y=flow_rf, mode='lines', line=dict(color='#34d399', width=3), name='Random Forest'))
+        # Regressione Logistica
+        fig.add_trace(go.Scatter(x=x_dati, y=flow_logistic, mode='lines', line=dict(color='#ef4444', width=3), name='Regr. Logistica'))
+        # XGBoost
+        fig.add_trace(go.Scatter(x=x_dati, y=flow_xgb, mode='lines', line=dict(color='#3b82f6', width=3), name='XGBoost'))
 
         fig.update_layout(
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
