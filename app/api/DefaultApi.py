@@ -27,5 +27,4 @@ class DefaultApi:
         if not r.ok:
             raise RequestException(f"Messaggio ricevuto con stato {r.status_code}")
 
-        print(r.status_code)
         return r.json()

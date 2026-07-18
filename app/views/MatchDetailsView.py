@@ -61,7 +61,6 @@ class MatchDetailsView(MethodView):
         prediction_xgbooost = 1 if xgboost_result[1] > XGBOOST_TRESHOLD else np.argmax(linear_result)
         prediction_forest = 1 if forest_result[1] > FOREST_TRESHOLD else np.argmax(linear_result)
 
-        print(np.round(linear_result[1], 2)*100)
         classes = ['1', 'X', '2']
         
         # Dati strutturati per i tuoi 3 modelli di Machine Learning

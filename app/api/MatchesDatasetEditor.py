@@ -639,7 +639,7 @@ class MatchesDatasetEditor:
         try:
             self.__dataset.to_csv(self.__dataset_path)
         except Exception as e:
-            print(f"Eccezione: {e}")
+        
             return False
 
         return True
@@ -658,7 +658,6 @@ class MatchesDatasetEditor:
         """
 
         date, home_team, away_team = statistics.matchDate, statistics.homeTeam.name, statistics.awayTeam.name
-        print(f"Data della partita: {date}")
 
         if self.is_in_dataset(date, home_team, away_team):
             return False
@@ -710,7 +709,6 @@ class MatchesDatasetEditor:
         try:
             self.__dataset.to_csv(self.__dataset_path)
         except Exception as e:
-            print(f"Eccezione: {e}")
             return False
 
         return True
