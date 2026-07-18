@@ -173,6 +173,74 @@ class HomeView(MethodView):
 
         return matches
 
+    def __update_today_match_values(self, matches: list, season_int: int, day_int: int, api_client) -> list:
+        from datetime import datetime
+        import math
+        
+        oggi = datetime.now().date()
+        partite_da_aggiornare = []
+
+        for match in matches:
+            match_date = datetime.strptime(match["Date"], "%Y-%m-%d").date()
+            home_val = match.get("HomeValue")
+        
+            is_val_missing = (
+                home_val is None 
+                or (isinstance(home_val, float) and math.isnan(home_val)) 
+                or home_val == 0 
+                or home_val == 0.0
+            )
+            
+            # Se la partita si gioca oggi e non abbiamo i valori, la aggiungiamo
+            if match_date == oggi and is_val_missing:
+                partite_da_aggiornare.append(match)
+
+        # Se non c'è nulla da aggiornare, restituisco l'array originario
+        if not partite_da_aggiornare:
+            return matches
+
+        try:
+            # 2. Ottengo di nuovo la mappa degli ID per questa giornata
+            matches_pydantic = api_client.get_matches(season=season_int, day=day_int)
+            api_match_map = {
+                (m.homeTeam.name, m.awayTeam.name): m.id 
+                for m in matches_pydantic.data
+            }
+
+            updates_for_dataset = []
+
+            # Interrogo l'API per i valori delle rose
+            for match in partite_da_aggiornare:
+                match_id = api_match_map.get((match["HomeTeam"], match["AwayTeam"]))
+                
+                if match_id:
+                    # Chiamo il metodo che hai creato
+                    stats_value = api_client.get_match_teams_value(match_id)
+                    
+                    # Preparo i dati per il DatasetEditor
+                    update_dict = {
+                        "Date": match["Date"],
+                        "HomeTeam": match["HomeTeam"],
+                        "AwayTeam": match["AwayTeam"],
+                        "HomeValue": stats_value.homePlayersValue,
+                        "AwayValue": stats_value.awayPlayersValue
+                    }
+                    updates_for_dataset.append(update_dict)
+
+                    # Aggiorno il dizionario in RAM in modo che il predittore abbia i dati freschi
+                    match["HomeValue"] = stats_value.homePlayersValue
+                    match["AwayValue"] = stats_value.awayPlayersValue
+
+            # Scrivo le modifiche su file
+            if updates_for_dataset:
+                self.__dataset_editor.update_match_values(updates_for_dataset)
+                print("Valori delle rose di oggi aggiornati con successo nel CSV.")
+
+        except Exception as e:
+            print(f"Errore durante l'aggiornamento dei valori delle rose: {e}")
+
+        return matches
+
     def get(self):
         from datetime import datetime
     
@@ -190,6 +258,9 @@ class HomeView(MethodView):
 
         # Ricerco le partite della giornata dal dataset 
         matches = self.__dataset_editor.get_all_match_of_day(stagione_stringa, day_int)
+
+        # Aggiorno eventuali valori delle rose
+        matches = self.__update_today_match_values(matches, season_int, day_int, api_client)
 
         if len(matches) != 10:
 

@@ -97,6 +97,25 @@ class MatchesDatasetEditor:
 
         # Salviamo le modifiche nel CSV
         self.__dataset.to_csv(self.__dataset_path)
+    
+    def update_match_values(self, updates_list: list) -> None:
+        """
+        Aggiorna i valori delle rose (HomeValue, AwayValue) per le partite già presenti.
+        
+        Args:
+            updates_list: Lista di dizionari con i valori aggiornati.
+        """
+        if not updates_list:
+            return
+
+        for update in updates_list:
+            idx = (update["Date"], update["HomeTeam"], update["AwayTeam"])
+            
+            if idx in self.__dataset.index:
+                self.__dataset.at[idx, 'HomeValue'] = update['HomeValue']
+                self.__dataset.at[idx, 'AwayValue'] = update['AwayValue']
+
+        self.__dataset.to_csv(self.__dataset_path)
 
     def is_in_dataset(self, date: str, home_team: str, away_team: str) -> bool:
         """
