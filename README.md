@@ -39,6 +39,6 @@ Per lanciare l'applicazione in Docker è necessario effettuare una build dell'im
 i seguenti comandi:
 
 ```bash
-docker build -t sports-outcome-player .
-docker run --rm -p 5000:5000 sports-outcome-player
+docker build -t sports-outcome-predictor .
+docker run --rm -p 5000:5000 sports-outcome-predictor
 ```
