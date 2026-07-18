@@ -41,6 +41,22 @@ class MatchesDatasetEditor:
         return matches_df.reset_index().to_dict(orient='records')
 
 
+    def add_new_matches(self, new_matches_list: list) -> None:
+        """
+        Inserisce le nuove partite nel dataset, aggiorna il dataframe in memoria
+        e sovrascrive il file CSV originale.
+        """
+        if not new_matches_list:
+            return  
+
+        new_df = pd.DataFrame(new_matches_list)
+        new_df = new_df.set_index(["Date", "HomeTeam", "AwayTeam"])
+        self.__dataset = pd.concat([self.__dataset, new_df])
+        self.__dataset = self.__dataset[~self.__dataset.index.duplicated(keep='last')]
+        self.__dataset = self.__dataset.sort_index()
+
+        self.__dataset.to_csv(self.__dataset_path)
+
     def extract_from_dataset(self, date: str, home_team: str, away_team: str):
         """
         Metodo che permette di estrarre un record dal dataframe (se esiste)

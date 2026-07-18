@@ -159,7 +159,7 @@ class HomeView(MethodView):
         matches = self.__dataset_editor.get_all_match_of_day(stagione_stringa, day_int)
 
         if len(matches) != 10:
-            
+            print("ENTRO")
             try:
 
                 # Chiamata API per i match
@@ -203,14 +203,29 @@ class HomeView(MethodView):
                             "AwayElo": features.eloAway,
                             "Home_Current_Points": features.pointsHome,
                             "Away_Current_Points": features.pointsAway,
+                            "HomeValue": 0,
+                            "AwayValue": 0,
+                            "PointToMatchRatioHome": features.homePointToMatchRatio, # Aggiunto
+                            "PointToMatchRatioAway": features.awayPointToMatchRatio, # Aggiunto
                         })
 
-                print(new_matches_data)
+                if new_matches_data:
+
+                    print("Passo di qua, salva")
+                    
+                    # Inserimento delle partite nel dataframe
+                    self.__dataset_editor.add_new_matches(new_matches_data)
+                    
+                    # Merge dei due array
+                    matches = matches + new_matches_data
 
             except Exception as e:
                 print(f"Errore durante il recupero dei match dall'API: {e}")
                 matches_pydantic = None
         
+
+        print("MTC: ", matches)
+
         return
 
         partite_estratte = []
