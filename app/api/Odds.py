@@ -1,14 +1,20 @@
-import pandas as pd
+import os
 import difflib
-
+import pandas as pd
+import numpy as np
+from app.constants import LINEAR_TRESHOLD, XGBOOST_TRESHOLD, FOREST_TRESHOLD
 from app.api.ModelPredictor import ModelPredictor
 
-
 class Odds:
-
     __odds_dataset: pd.DataFrame
     __match_dataset: pd.DataFrame
     __merged_dataset: pd.DataFrame
+
+    def __init__(self, odds_dataframe_path: str, match_dataframe_path: str) -> None:
+        self.__odds_dataset = pd.read_csv(odds_dataframe_path)
+        self.__match_dataset = pd.read_csv(match_dataframe_path)
+        self.__odds_dataset = self.__odds_dataset.dropna()
+        self.__merge_dataset()
 
     def __merge_dataset(self) -> None:
 
@@ -24,9 +30,9 @@ class Odds:
             errors='coerce' 
         ).dt.date
 
-        # Risoluzione dei nomi delle squadre
         self.__match_dataset = self.__match_dataset.dropna(subset=['Match_Date_Temp'])
         self.__odds_dataset = self.__odds_dataset.dropna(subset=['Odds_Date_Temp'])
+        
         match_teams = pd.concat([self.__match_dataset['HomeTeam'], self.__match_dataset['AwayTeam']]).unique()
         odds_teams = pd.concat([self.__odds_dataset['homeTeam'], self.__odds_dataset['awayTeam']]).unique()
 
@@ -38,7 +44,6 @@ class Odds:
         self.__odds_dataset['homeTeam_Norm'] = self.__odds_dataset['homeTeam'].map(team_mapping)
         self.__odds_dataset['awayTeam_Norm'] = self.__odds_dataset['awayTeam'].map(team_mapping)
 
-        # Affiancamento dei due dataset
         self.__merged_dataset = pd.merge(
             left=self.__match_dataset,
             right=self.__odds_dataset,
@@ -47,126 +52,124 @@ class Odds:
             how='inner' 
         )
 
-        # Pulizia delle colonne temporanee create per il merge
         col_rimuovere_match = ['Match_Date_Temp']
         col_rimuovere_odds = ['Odds_Date_Temp', 'homeTeam_Norm', 'awayTeam_Norm']
         
-        # Le puliamo sia dai dataset originali che dal dataset finale
         self.__match_dataset.drop(columns=col_rimuovere_match, inplace=True, errors='ignore')
         self.__odds_dataset.drop(columns=col_rimuovere_odds, inplace=True, errors='ignore')
         self.__merged_dataset.drop(columns=col_rimuovere_match + col_rimuovere_odds, inplace=True, errors='ignore')
 
-    def __init__(
-            self,
-            odds_dataframe_path: str,
-            match_dataframe_path: str
-    ) -> None:
+    def backtest(self, season_str: str, budget_iniziale: float, puntata_fissa: float) -> dict:
 
-        # Importazione e rimozione delle rows vuote 
-        self.__odds_dataset = pd.read_csv(odds_dataframe_path)
-        self.__match_dataset = pd.read_csv(match_dataframe_path)
-        self.__odds_dataset = self.__odds_dataset.dropna()
-
-        # Merge dei due dataset
-        self.__merge_dataset()
-        print(self.__merged_dataset.head(10))
-
-    
-
-    def backtest(self, season: int) -> list[float]:
-        """
-        Metodo che permette di fare un 'backtest' del modello selezionato...
-        """
-        import numpy as np
-
-        # Ottengo le row della stagione inserita
-        selected_df = self.__merged_dataset[self.__merged_dataset["Season_x"] == f"{season}-{season+1}"]
+        # Identifica la colonna corretta della stagione per evitare KeyError
+        colonna_stagione = "Season_x" if "Season_x" in self.__merged_dataset.columns else "Season"
+        
+        selected_df = self.__merged_dataset[self.__merged_dataset[colonna_stagione] == season_str]
         
         n_matches = len(selected_df)
         if n_matches == 0:
-            return [0.0, 0.0, 0.0, 0.0]
+            return {
+                "totale": 0, "storico_rf": [],
+                "flow_rf": [budget_iniziale], "flow_logistic": [budget_iniziale], "flow_xgb": [budget_iniziale]
+            }
 
-        # 1. RISOLUZIONE BUG MATEMATICO: 
-        # Il costo iniziale non è fisso a -3800, ma dipende dalle partite REALI giocate nel dataframe.
-        costo_totale_scommesse = -10.0 * n_matches
-        earns = [costo_totale_scommesse] * 4
-
-        # Inizializzazione modelli (Consiglio: spostali in __init__ per non ricaricarli dal disco ogni volta!)
         models = [
             ModelPredictor("app/static/models/linear_model.joblib"),
             ModelPredictor("app/static/models/random_forest_model.joblib"),
             ModelPredictor("app/static/models/random_xgboost_model.joblib"),
         ]
         
-        # 2. OTTIMIZZAZIONE PRESTAZIONI: Vettorializzazione delle features
-        # Prepariamo le matrici di input (tutte le righe in un solo colpo)
-        X1 = np.column_stack((
-            selected_df["Home_WinStreak"] - selected_df["Away_WinStreak"],
-            selected_df["GoalOnShotRatioHome"] - selected_df["GoalOnShotRatioAway"],
-            selected_df["HomeElo"] - selected_df["AwayElo"],
-            selected_df["HomeAdvantage"],
-            selected_df["Z_Home_Goals_Season"] - selected_df["Z_Away_Goals_Season"],
-            np.abs(selected_df["Home_Current_Points"] - selected_df["Away_Current_Points"])
-        ))
-
-        X2 = np.column_stack((
-            selected_df["HomeValue"] - selected_df["AwayValue"],
-            selected_df["Z_Home_Wins_Season"] - selected_df["Z_Away_Wins_Season"],
-            np.abs(selected_df["HomeValue"] - selected_df["AwayValue"]),
-            selected_df["HomeAdvantage"]
-        ))
-
-        X3 = np.column_stack((
-            selected_df["HomeValue"] - selected_df["AwayValue"],
-            selected_df["Z_Home_Wins_Season"] - selected_df["Z_Away_Wins_Season"],
-            np.abs(selected_df["HomeValue"] - selected_df["AwayValue"])
-        ))
-
-        # Eseguiamo le previsioni in batch (una passata singola, velocissimo)
-        m1_prev_batch = models[0].predict(X1)
-        m2_prev_batch = models[1].predict(X2)
-        m3_prev_batch = models[2].predict(X3)
-
-        # Previsioni Baseline (Random) vettorializzate
-        baseline_preds = np.random.randint(0, 3, size=n_matches)
-
-        # 3. LOGICA DI SCELTA VETTORIALIZZATA (Sostituisce il tuo if/else con np.where)
-        # np.where(condizione, valore_se_vero, valore_se_falso)
-        res_1 = np.where(m1_prev_batch[:, 1] > 0.27, 1, np.argmax(m1_prev_batch, axis=1))
-        res_2 = np.where(m2_prev_batch[:, 1] > 0.29, 1, np.argmax(m2_prev_batch, axis=1))
-        res_3 = np.where(m3_prev_batch[:, 1] > 0.29, 1, np.argmax(m3_prev_batch, axis=1))
-
-        # 4. CALCOLO DEI GUADAGNI OTTIMIZZATO
-        mapping_risultati = np.array(['H', 'D', 'A'])
-        risultati_reali = selected_df['FTR'].values
         
-        # Estraiamo le quote come un'unica matrice (N_partite, 3_esiti)
+        
+        X1 = pd.DataFrame({
+            "WinStreak": selected_df["Home_WinStreak"] - selected_df["Away_WinStreak"],
+            "GoalOnShotRatio": selected_df["GoalOnShotRatioHome"] - selected_df["GoalOnShotRatioAway"],
+            "Elo": selected_df["HomeElo"] - selected_df["AwayElo"],
+            "HomeAdvantage": selected_df["HomeAdvantage"],
+            "Z_Goals_Season": selected_df["Z_Home_Goals_Season"] - selected_df["Z_Away_Goals_Season"],
+            "Abs_Points_Difference": np.abs(selected_df["Home_Current_Points"] - selected_df["Away_Current_Points"])
+        })
+
+        X2 = pd.DataFrame({
+            "Value": selected_df["HomeValue"] - selected_df["AwayValue"],
+            "Z_Wins_Season": selected_df["Z_Home_Wins_Season"] - selected_df["Z_Away_Wins_Season"],
+            "Abs_Value_Difference": np.abs(selected_df["HomeValue"] - selected_df["AwayValue"]),
+            "HomeAdvantage": selected_df["HomeAdvantage"]
+        })
+
+        X3 = pd.DataFrame({
+            "Value": selected_df["HomeValue"] - selected_df["AwayValue"],
+            "Z_Wins_Season": selected_df["Z_Home_Wins_Season"] - selected_df["Z_Away_Wins_Season"],
+            "Abs_Value_Difference": np.abs(selected_df["HomeValue"] - selected_df["AwayValue"])
+        })
+
+        # Inferenza
+        m1_prev = models[0].predict(X1)
+        m2_prev = models[1].predict(X2)
+        m3_prev = models[2].predict(X3)
+
+        # Scelta del segno con correzione degli argmax associati a ciascun modello
+        res_1 = np.where(m1_prev[:, 1] > LINEAR_TRESHOLD, 1, np.argmax(m1_prev, axis=1))
+        res_2 = np.where(m2_prev[:, 1] > FOREST_TRESHOLD, 1, np.argmax(m2_prev, axis=1))
+        res_3 = np.where(m3_prev[:, 1] > XGBOOST_TRESHOLD, 1, np.argmax(m3_prev, axis=1))
+
+        mapping_risultati = np.array(['1', 'X', '2'])
+        ftr_mapping = {'H': '1', 'D': 'X', 'A': '2'}
+        risultati_reali = selected_df['FTR'].map(ftr_mapping).values
+        
         quote_matrice = np.column_stack((
             selected_df['H'].astype(float).values, 
             selected_df['D'].astype(float).values, 
             selected_df['A'].astype(float).values
         ))
 
-        def calcola_vincita_modello(previsioni_indici):
-            # Convertiamo gli indici (0,1,2) in stringhe ('H', 'D', 'A')
-            previsioni_str = mapping_risultati[previsioni_indici]
-            
-            # Maschera booleana: in quali partite abbiamo indovinato?
-            vittorie = (previsioni_str == risultati_reali)
-            
-            # Peschiamo le quote esatte giocate per ogni partita 
-            # np.arange(n_matches) seleziona la riga, previsioni_indici seleziona la colonna corretta (H=0, D=1, A=2)
-            quote_giocate = quote_matrice[np.arange(n_matches), previsioni_indici]
-            
-            # Moltiplichiamo le quote delle SOLI partite vinte per 10€ e le sommiamo
-            return np.sum(10.0 * quote_giocate[vittorie])
+        pred_linear_arr = mapping_risultati[res_1]
+        pred_forest_arr = mapping_risultati[res_2]
+        pred_xgb_arr = mapping_risultati[res_3]
 
-        # Aggiorniamo i guadagni finali
-        earns[0] += calcola_vincita_modello(baseline_preds)
-        earns[1] += calcola_vincita_modello(res_1)
-        earns[2] += calcola_vincita_modello(res_2)
-        earns[3] += calcola_vincita_modello(res_3)
+        flow_rf = [budget_iniziale]
+        flow_logistic = [budget_iniziale]
+        flow_xgb = [budget_iniziale]
+        storico_rf_dettagliato = []
 
-        return earns
+        teams_home = selected_df['HomeTeam'].values
+        teams_away = selected_df['AwayTeam'].values
 
-        
+        for i in range(n_matches):
+            real_sign = risultati_reali[i]
+            
+            # Random Forest
+            pred_rf = pred_forest_arr[i]
+            quota_rf = quote_matrice[i, res_2[i]]
+            esito_rf = "Vinta" if pred_rf == real_sign else "Persa"
+            guadagno_rf = (puntata_fissa * quota_rf) - puntata_fissa if esito_rf == "Vinta" else -puntata_fissa
+            flow_rf.append(flow_rf[-1] + guadagno_rf)
+
+            storico_rf_dettagliato.append({
+                "match": f"{teams_home[i]} - {teams_away[i]}",
+                "prediction": pred_rf,
+                "quota": round(quota_rf, 2),
+                "esito": esito_rf,
+                "guadagno": round(guadagno_rf, 2),
+                "bilancio_flow": round(flow_rf[-1], 2)
+            })
+
+            # Regressione Logistica
+            pred_log = pred_linear_arr[i]
+            quota_log = quote_matrice[i, res_1[i]]
+            guadagno_log = (puntata_fissa * quota_log) - puntata_fissa if pred_log == real_sign else -puntata_fissa
+            flow_logistic.append(flow_logistic[-1] + guadagno_log)
+
+            # XGBoost
+            pred_xgb = pred_xgb_arr[i]
+            quota_xgb = quote_matrice[i, res_3[i]]
+            guadagno_xgb = (puntata_fissa * quota_xgb) - puntata_fissa if pred_xgb == real_sign else -puntata_fissa
+            flow_xgb.append(flow_xgb[-1] + guadagno_xgb)
+
+        return {
+            "totale": n_matches,
+            "storico_rf": storico_rf_dettagliato,
+            "flow_rf": flow_rf,
+            "flow_logistic": flow_logistic,
+            "flow_xgb": flow_xgb
+        }

@@ -20,6 +20,43 @@ class MatchesDatasetEditor:
         self.__dataset = self.__dataset.sort_index()
         self.__dataset_path = dataset_path
     
+    def get_all_match_of_day(self, season: str, day: int) -> list:
+        """
+        Metodo che ritorna le partite della giornata selezionata
+        
+        Args:
+            season: stagione
+            day: giornata della partita
+        
+        Returns:
+            lista delle partite
+        """
+
+        # Maschera per la ricerca
+        mask = (self.__dataset['Season'] == season) & (self.__dataset['Day'] == day)
+        
+        # Applicazione del filtro
+        matches_df = self.__dataset[mask]
+
+        return matches_df.reset_index().to_dict(orient='records')
+
+
+    def add_new_matches(self, new_matches_list: list) -> None:
+        """
+        Inserisce le nuove partite nel dataset, aggiorna il dataframe in memoria
+        e sovrascrive il file CSV originale.
+        """
+        if not new_matches_list:
+            return  
+
+        new_df = pd.DataFrame(new_matches_list)
+        new_df = new_df.set_index(["Date", "HomeTeam", "AwayTeam"])
+        self.__dataset = pd.concat([self.__dataset, new_df])
+        self.__dataset = self.__dataset[~self.__dataset.index.duplicated(keep='last')]
+        self.__dataset = self.__dataset.sort_index()
+
+        self.__dataset.to_csv(self.__dataset_path)
+
     def extract_from_dataset(self, date: str, home_team: str, away_team: str):
         """
         Metodo che permette di estrarre un record dal dataframe (se esiste)
@@ -34,36 +71,51 @@ class MatchesDatasetEditor:
             # Nel caso in cui per qualche motivo la riga non venisse trovata
             return None
 
-    def update_match_values(self, date: str, home_team: str, away_team: str, home_value: float, away_value: float) -> bool:
-        """Aggiorna solo i valori di mercato delle squadre."""
-        if not self.is_in_dataset(date, home_team, away_team):
-            return False
+    def update_match_results(self, updates_list: list) -> None:
+        """
+        Aggiorna i risultati finali (FTHG, FTAG, FTR) per le partite già presenti.
         
-        try:
-            idx = (date, home_team, away_team)
-            self.__dataset.loc[idx, "HomeValue"] = home_value
-            self.__dataset.loc[idx, "AwayValue"] = away_value
-            self.__dataset.to_csv(self.__dataset_path)
-            return True
-        except Exception as e:
-            print(f"Errore aggiornamento Values: {e}")
-            return False
+        Args:
+            updates_list: Lista di dizionari con i risultati aggiornati.
+        """
+        if not updates_list:
+            return
 
-    def update_match_results(self, date: str, home_team: str, away_team: str, fthg: int, ftag: int, ftr: str) -> bool:
-        """Aggiorna i risultati finali di una partita completata."""
-        if not self.is_in_dataset(date, home_team, away_team):
-            return False
+        for update in updates_list:
+            # Creiamo la tupla indice per trovare la riga esatta
+            idx = (update["Date"], update["HomeTeam"], update["AwayTeam"])
+            
+            # Se la partita esiste nel dataset, aggiorniamo i valori
+            if idx in self.__dataset.index:
+                self.__dataset.at[idx, 'FTHG'] = update['FTHG']
+                self.__dataset.at[idx, 'FTAG'] = update['FTAG']
+                self.__dataset.at[idx, 'FTR'] = update['FTR']
+                
+                # Se hai anche queste colonne nel CSV, puoi scommentare:
+                self.__dataset.at[idx, 'HST'] = update.get('HST')
+                self.__dataset.at[idx, 'AST'] = update.get('AST')
+
+        # Salviamo le modifiche nel CSV
+        self.__dataset.to_csv(self.__dataset_path)
+    
+    def update_match_values(self, updates_list: list) -> None:
+        """
+        Aggiorna i valori delle rose (HomeValue, AwayValue) per le partite già presenti.
         
-        try:
-            idx = (date, home_team, away_team)
-            self.__dataset.loc[idx, "FTHG"] = fthg
-            self.__dataset.loc[idx, "FTAG"] = ftag
-            self.__dataset.loc[idx, "FTR"] = ftr
-            self.__dataset.to_csv(self.__dataset_path)
-            return True
-        except Exception as e:
-            print(f"Errore aggiornamento risultati: {e}")
-            return False
+        Args:
+            updates_list: Lista di dizionari con i valori aggiornati.
+        """
+        if not updates_list:
+            return
+
+        for update in updates_list:
+            idx = (update["Date"], update["HomeTeam"], update["AwayTeam"])
+            
+            if idx in self.__dataset.index:
+                self.__dataset.at[idx, 'HomeValue'] = update['HomeValue']
+                self.__dataset.at[idx, 'AwayValue'] = update['AwayValue']
+
+        self.__dataset.to_csv(self.__dataset_path)
 
     def is_in_dataset(self, date: str, home_team: str, away_team: str) -> bool:
         """
@@ -587,7 +639,7 @@ class MatchesDatasetEditor:
         try:
             self.__dataset.to_csv(self.__dataset_path)
         except Exception as e:
-            print(f"Eccezione: {e}")
+        
             return False
 
         return True
@@ -606,7 +658,6 @@ class MatchesDatasetEditor:
         """
 
         date, home_team, away_team = statistics.matchDate, statistics.homeTeam.name, statistics.awayTeam.name
-        print(f"Data della partita: {date}")
 
         if self.is_in_dataset(date, home_team, away_team):
             return False
@@ -658,7 +709,6 @@ class MatchesDatasetEditor:
         try:
             self.__dataset.to_csv(self.__dataset_path)
         except Exception as e:
-            print(f"Eccezione: {e}")
             return False
 
         return True

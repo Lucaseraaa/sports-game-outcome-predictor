@@ -18,15 +18,17 @@ Per la corretta organizzazione del progetto, esso viene diviso in moduli, ognuno
 Il modulo di notebook viene utilizzato per le operazioni di **data analysis** e di **machine learning**, data la sua comodità in questi ambiti: è infatti possibile visualizzare le variabili e le strutture dati graficamente (utile per i dataframe di Pandas e i grafici di Matplotlib); inoltre è possibile separare il codice in varie "celle", opportunamente commentate per separare le diverse funzionalità che vogliamo implementare. 
 
 ### App 
-Questo modulo contiene l'app vera e propria, ossia il sito web creato con Flask, che permette di visualizzare previsioni di risultati delle partite di Serie A, attraverso l'ausilio del modello creato nei notebook. L'applicazione utilizza come fonte di dati delle nuove partite le API di [highlighty](https://highlightly.net/). Per il corretto funzionamento delle API è stato creato un file .env (non messo in gitignore per comodità, data la necessità di presentare il progetto) che contiene le credenziali necessarie. 
-
+Questo modulo contiene l'app vera e propria, ossia il sito web creato con Flask, che permette di visualizzare previsioni di risultati delle partite di Serie A, attraverso l'ausilio dei modelli creati nei notebook. L'applicazione utilizza come fonte di dati delle nuove partite le API di [highlighty](https://highlightly.net/). Per il corretto funzionamento delle API è stato creato un file .env (non messo in .gitignore per comodità, data la necessità di presentare il progetto) che contiene le credenziali necessarie. La variabile `API_TOKEN` contiene un token necessario per il funzionamento delle API, che contiene un numero di chiamate pari 100 al giorno (limite account free).
+```
+API_TOKEN=1ce3f6ed-f37a-4960-9ed5-18b50c8b1514
+```
 # Deploy
 
 ## Locale
 Per il deploy in locale utilizzare i seguenti comandi (all'interno di un ambiente virtuale):
 
 ```bash
-pip install -r requirements.txt 
+uv pip install -r requirements.txt 
 python -m app
 ```
 
@@ -37,6 +39,6 @@ Per lanciare l'applicazione in Docker è necessario effettuare una build dell'im
 i seguenti comandi:
 
 ```bash
-docker build -t sports-outcome-player .
-docker run --rm -p 5000:5000 sports-outcome-player
+docker build -t sports-outcome-predictor .
+docker run --rm -p 5000:5000 sports-outcome-predictor
 ```

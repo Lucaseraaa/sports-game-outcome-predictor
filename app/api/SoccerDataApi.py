@@ -107,7 +107,6 @@ class SoccerDataApi:
 
         statistics = json_result.get("statistics")
         home_statistics, away_statistics = statistics[0].get('statistics'), statistics[1].get('statistics')
-        print(f"Statistic: {home_statistics}")
         home_shot_on_target, away_shot_on_target = home_statistics[27].get('value'), away_statistics[27].get('value')
 
         home_team = Team(
@@ -131,8 +130,6 @@ class SoccerDataApi:
             matchDate=date
         )
 
-        md = MatchesDatasetEditor("app/static/result.csv")
-        md.add_in_dataset(1, s)
         return s
     
     def get_match_teams_value(self, match_id: int) -> PlayerStatistics:

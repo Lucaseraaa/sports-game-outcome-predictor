@@ -32,12 +32,12 @@
                 </span>
                 <!-- Invia il form in automatico al cambio della stagione per aggiornare le giornate -->
                 <select name="anno" onchange="this.form.submit()" class="block w-full pl-10 pr-3 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                    <option value="2025-2026" {% if stagione_corrente == '2025-2026' %}selected{% endif %}>2025 / 2026</option>
                     <option value="2026-2027" {% if stagione_corrente == '2026-2027' %}selected{% endif %}>2026 / 2027</option>
                 </select>
             </div>
         </div>
 
-        <!-- Select Giornata dinamica (gestita da flask) -->
         <div class="space-y-2">
             <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400">Giornata</label>
             <div class="relative">
@@ -46,8 +46,9 @@
                 </span>
                 <select name="giornata" class="block w-full pl-10 pr-3 py-2.5 bg-gray-900 border border-gray-700 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                     {% for g in giornate_opzioni %}
-                        <option value="{{ g }}" {% if g == giornata_corrente %}selected{% endif %}>
-                            {% if g.isdigit() %}Giornata {{ g }}{% else %}{{ g }}{% endif %}
+                        <!-- Usa |string per evitare bug di comparazione tra int e str -->
+                        <option value="{{ g }}" {% if g|string == giornata_corrente|string %}selected{% endif %}>
+                            Giornata {{ g }}
                         </option>
                     {% endfor %}
                 </select>
