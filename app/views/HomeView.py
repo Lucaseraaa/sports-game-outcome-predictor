@@ -97,8 +97,82 @@ class HomeView(MethodView):
             # Se è una stagione passata, le partite sono già tutte giocate: sblocco tutto
             return [str(i) for i in range(1, 39)]
 
+    def __update_completed_matches(self, matches: list, season_int: int, day_int: int, api_client) -> list:
+        """
+        metodo che permette di fare l'update dei match che hanno già i risultati
+        """
+        from datetime import datetime
+        import math
+        
+        oggi = datetime.now().date()
+        partite_da_aggiornare = []
 
-    
+        # rovo quali partite necessitano di aggiornamento
+        for match in matches:
+            match_date = datetime.strptime(match["Date"], "%Y-%m-%d").date()
+            ftr = match.get("FTR")
+            
+            # Controllo se l'FTR è mancante (può essere NaN nel dataframe o None)
+            is_ftr_missing = ftr is None or (isinstance(ftr, float) and math.isnan(ftr))
+            
+            # Se la partita è di "almeno ieri" e non ha un risultato
+            if match_date < oggi and is_ftr_missing:
+                partite_da_aggiornare.append(match)
+
+        # Se non c'è nulla da aggiornare, restituisco l'array originario e interrompo
+        if not partite_da_aggiornare:
+            print("NON C'È NULLA")
+            return matches
+
+        print(f"Trovate {len(partite_da_aggiornare)} partite senza risultato. Avvio aggiornamento...")
+
+        try:
+            # Chiamata API generale per mappare le partite ai loro ID
+            matches_pydantic = api_client.get_matches(season=season_int, day=day_int)
+            
+            # Mappa veloce: (SquadraCasa, SquadraTrasferta) -> ID_Partita
+            api_match_map = {
+                (m.homeTeam.name, m.awayTeam.name): m.id 
+                for m in matches_pydantic.data
+            }
+
+            updates_for_dataset = []
+
+            # Interrogo i dettagli e preparo gli aggiornamenti
+            for match in partite_da_aggiornare:
+                match_id = api_match_map.get((match["HomeTeam"], match["AwayTeam"]))
+                
+                if match_id:
+                    # Ottengo le statistiche complete tramite il metodo che hai creato
+                    stats = api_client.get_match_detail(match_id)
+                    
+                    # Preparo il pacchetto di aggiornamento per il DatasetEditor
+                    update_dict = {
+                        "Date": match["Date"],
+                        "HomeTeam": match["HomeTeam"],
+                        "AwayTeam": match["AwayTeam"],
+                        "FTHG": stats.homeGoal,
+                        "FTAG": stats.awayGoal,
+                        "FTR": stats.fullTimeResult,
+                        "HST": stats.homeShots,
+                        "AST": stats.awayShots
+                    }
+                    updates_for_dataset.append(update_dict)
+
+                    match["FTHG"] = stats.homeGoal
+                    match["FTAG"] = stats.awayGoal
+                    match["FTR"] = stats.fullTimeResult
+
+            # Scrivo i nuovi risultati sul file CSV tramite l'editor
+            if updates_for_dataset:
+                self.__dataset_editor.update_match_results(updates_for_dataset)
+                print("Risultati mancanti aggiornati con successo nel CSV.")
+
+        except Exception as e:
+            print(f"Errore durante l'aggiornamento dei risultati completati: {e}")
+
+        return matches
+
     def get(self):
         from datetime import datetime
     
@@ -180,6 +254,7 @@ class HomeView(MethodView):
                 print(f"Errore durante il recupero dei match dall'API: {e}")
                 matches_pydantic = None
         
+        matches = self.__update_completed_matches(matches, season_int, day_int, api_client)
 
         partite_estratte = []
         
