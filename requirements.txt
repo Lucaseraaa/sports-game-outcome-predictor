@@ -11,6 +11,7 @@ joblib==1.5.3
 markupsafe==3.0.3
 narwhals==2.24.0
 numpy==2.5.1
+nvidia-nccl-cu12==2.30.7
 packaging==26.2
 pandas==3.0.3
 plotly==6.9.0
@@ -27,3 +28,4 @@ typing-extensions==4.16.0
 typing-inspection==0.4.2
 urllib3==2.7.0
 werkzeug==3.1.8
+xgboost==3.3.0
