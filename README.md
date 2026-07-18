@@ -38,5 +38,5 @@ i seguenti comandi:
 
 ```bash
 docker build -t sports-outcome-player .
-docker run --rm -p 8000:8000 sports-outcome-player
+docker run --rm -p 5000:5000 sports-outcome-player
 ```
