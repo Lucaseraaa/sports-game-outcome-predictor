@@ -20,6 +20,27 @@ class MatchesDatasetEditor:
         self.__dataset = self.__dataset.sort_index()
         self.__dataset_path = dataset_path
     
+    def get_all_match_of_day(self, season: str, day: int) -> list:
+        """
+        Metodo che ritorna le partite della giornata selezionata
+        
+        Args:
+            season: stagione
+            day: giornata della partita
+        
+        Returns:
+            lista delle partite
+        """
+
+        # Maschera per la ricerca
+        mask = (self.__dataset['Season'] == season) & (self.__dataset['Day'] == day)
+        
+        # Applicazione del filtro
+        matches_df = self.__dataset[mask]
+
+        return matches_df.reset_index().to_dict(orient='records')
+
+
     def extract_from_dataset(self, date: str, home_team: str, away_team: str):
         """
         Metodo che permette di estrarre un record dal dataframe (se esiste)

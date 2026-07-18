@@ -140,51 +140,12 @@ class HomeView(MethodView):
             print(f"Errore ricerca match_id: {e}")
             return None
 
-    def _get_max_giornata_disponibile(self, season_int: int, api_client: SoccerDataApi) -> int:
-        """
-        Calcola la massima giornata selezionabile:
-        - Non permette di andare oltre la giornata corrente.
-        - Permette la prossima giornata solo se tutte le partite della giornata attuale sono concluse.
-        """
-        today = datetime.now().date()
-        
-        try:
-            # Proviamo a capire quante giornate sono già passate
-            # Strategia: prendi le partite della stagione e trova la giornata più avanzata con risultati
-            max_day = 1
-            
-            for day in range(1, 39):  # massimo 38 giornate
-                try:
-                    matches = api_client.get_matches(season=season_int, day=day)
-                    if not matches or not hasattr(matches, 'data') or len(matches.data) == 0:
-                        break
-                    
-                    all_finished = True
-                    for match in matches.data:
-                        match_date = datetime.strptime(match.date, "%Y-%m-%dT%H:%M:%S.%fZ").date()
-                        # Se la partita è futura o non ha ancora risultato
-                        if match_date > today:
-                            all_finished = False
-                            break
-                    
-                    if all_finished:
-                        max_day = day
-                    else:
-                        # Se questa giornata non è finita, la prossima non è selezionabile
-                        break
-                except Exception:
-                    break  # API non ha più dati per giornate successive
-            
-            # In ogni caso, non andare oltre la giornata corrente + 1 solo se quella corrente è completata
-            return min(max_day + 1 if all_finished else max_day, 38)
-            
-        except Exception as e:
-            print(f"Errore nel calcolo giornata massima: {e}")
-            # Fallback: permetti fino alla giornata 1 se tutto fallisce
-            return 1
+    
 
     def get(self):
-        stagione_stringa = request.args.get('anno', '2025-2026')
+        from datetime import datetime
+    
+        stagione_stringa = request.args.get('anno', '2026-2027')
         giornata_stringa = request.args.get('giornata', '1')
         
         season_int = int(stagione_stringa.split('-')[0])
@@ -192,24 +153,65 @@ class HomeView(MethodView):
         
         api_client = SoccerDataApi()
         
-        # Calcola la massima giornata disponibile
-        max_giornata = self._get_max_giornata_disponibile(season_int, api_client)
-        
-        # Se l'utente prova a selezionare una giornata oltre il consentito, forziamo al massimo
-        if requested_day > max_giornata:
-            giornata_stringa = str(max_giornata)
-            requested_day = max_giornata
-            print(f"Giornata {requested_day} non ancora disponibile. Forzata a {max_giornata}")
-
-        giornate_disponibili = [str(i) for i in range(1, max_giornata + 1)]
-        
         day_int = requested_day
         
-        try:
-            matches_pydantic = api_client.get_matches(season=season_int, day=day_int)
-        except Exception as e:
-            print(f"Errore durante il recupero dei match dall'API: {e}")
-            matches_pydantic = None
+        # Ricerco le partite della giornata dal dataset 
+        matches = self.__dataset_editor.get_all_match_of_day(stagione_stringa, day_int)
+
+        if len(matches) != 10:
+            
+            try:
+
+                # Chiamata API per i match
+                matches_pydantic = api_client.get_matches(season=season_int, day=day_int)
+
+                # Inserisco le partite estratte all'interno del dataframe
+                existing_matches_pairs = { (m["HomeTeam"], m["AwayTeam"]) for m in matches }
+
+                new_matches_data = []
+
+                for api_match in matches_pydantic.data:
+                    home_team_str = api_match.homeTeam.name 
+                    away_team_str = api_match.awayTeam.name
+                    match_date_str = api_match.date
+
+                    if (home_team_str, away_team_str) not in existing_matches_pairs:
+                        features = self.__dataset_editor.generate_prediction_features(
+                            day=day_int,
+                            home_team=home_team_str,
+                            away_team=away_team_str,
+                            match_date=match_date_str
+                        )
+
+                        data_oggetto = datetime.strptime(match_date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        new_matches_data.append({
+                            "Date": data_oggetto.strftime("%Y-%m-%d"),
+                            "HomeTeam": home_team_str,
+                            "AwayTeam": away_team_str,
+                            "Season": stagione_stringa,
+                            "Day": day_int,
+                            "Home_WinStreak": features.homeWinStreak,
+                            "Away_WinStreak": features.awayWinStreak,
+                            "Z_Home_Goals_Season": features.homeZGoalsSeason,
+                            "Z_Home_Wins_Season": features.homeZWinsSeason,
+                            "Z_Away_Goals_Season": features.awayZGoalsSeason,
+                            "Z_Away_Wins_Season": features.awayZWinsSeason,
+                            "GoalOnShotRatioHome": features.homeGoalOnShotRatio,
+                            "GoalOnShotRatioAway": features.awayGoalOnShotRatio,
+                            "HomeAdvantage": features.homeAdvantage,
+                            "HomeElo": features.eloHome,
+                            "AwayElo": features.eloAway,
+                            "Home_Current_Points": features.pointsHome,
+                            "Away_Current_Points": features.pointsAway,
+                        })
+
+                print(new_matches_data)
+
+            except Exception as e:
+                print(f"Errore durante il recupero dei match dall'API: {e}")
+                matches_pydantic = None
+        
+        return
 
         partite_estratte = []
         
