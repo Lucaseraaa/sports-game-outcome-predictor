@@ -6,6 +6,11 @@ from app.api.MatchesDatasetEditor import MatchesDatasetEditor
 from app.api.ModelPredictor import ModelPredictor
 import numpy as np
 
+import warnings
+
+# Silenzia solo gli UserWarning specifici di scikit-learn relativi ai nomi delle feature
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+
 class MatchDetailsView(MethodView):
 
     def get(self, match_id):

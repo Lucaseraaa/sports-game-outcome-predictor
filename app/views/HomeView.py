@@ -9,6 +9,10 @@ from app.api.ModelPredictor import ModelPredictor
 from app.api.MatchesDatasetEditor import MatchesDatasetEditor  
 from app.models.Statistics import Statistics
 from app.models.Team import Team
+import warnings
+
+# Silenzia solo gli UserWarning specifici di scikit-learn relativi ai nomi delle feature
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 class HomeView(MethodView):
     __dataset_editor: MatchesDatasetEditor

@@ -4,6 +4,11 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from app.api.Odds import Odds
 
+import warnings
+
+# Silenzia solo gli UserWarning specifici di scikit-learn relativi ai nomi delle feature
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+
 class BetView(MethodView):
 
     def get(self):
