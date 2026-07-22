@@ -10,5 +10,5 @@ LEAGUE_ID: int = int(os.getenv("LEAGUE_ID", "0")) # Id della lega 'Serie A'
 
 # Treshold
 LINEAR_TRESHOLD: float = 0.27
-XGBOOST_TRESHOLD: float = 0.27
-FOREST_TRESHOLD: float = 0.27
+XGBOOST_TRESHOLD: float = 0.29
+FOREST_TRESHOLD: float = 0.29
