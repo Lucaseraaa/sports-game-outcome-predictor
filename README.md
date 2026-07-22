@@ -14,6 +14,13 @@ Il branch main viene utilizzato solamente per il deploy dell'applicazione, il de
 # Gestione del progetto
 Per la corretta organizzazione del progetto, esso viene diviso in moduli, ognuno con una funzione specifica, che verrà descritta a seguito.
 
+## Docs
+Il modulo docs contiene due file:
+- Documentazione;
+- Slide presentazione.
+
+Ovvero la documentazione del nostro progetto e le slide della relativa presentazione.
+
 ## Notebook
 Il modulo di notebook viene utilizzato per le operazioni di **data analysis** e di **machine learning**, data la sua comodità in questi ambiti: è infatti possibile visualizzare le variabili e le strutture dati graficamente (utile per i dataframe di Pandas e i grafici di Matplotlib); inoltre è possibile separare il codice in varie "celle", opportunamente commentate per separare le diverse funzionalità che vogliamo implementare. 
 
